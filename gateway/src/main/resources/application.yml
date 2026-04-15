@@ -60,7 +60,7 @@ spring:
             - id: product-service
               uri: lb://product-service
               predicates:
-                - Path=/api/product/**
+                - Path=/api/products/**
 
             - id: category-service
               uri: lb://product-service
@@ -176,6 +176,8 @@ gateway:
       - /api/auth
       - /api/auth/login
       - /api/auth/refresh
+      - /api/auth/email-verifications
+      - /api/auth/email-verifications/confirm
       - /api/auth/profile-images/presign
       - /swagger/**
       - /swagger-ui.html
@@ -185,7 +187,7 @@ gateway:
       - methods: [GET]
         pattern: /api/categories/**
       - methods: [GET]
-        pattern: /api/product/**
+        pattern: /api/products/**
     role-rules:
       - methods: [GET, PUT]
         pattern: /api/members/me
@@ -215,7 +217,7 @@ gateway:
         pattern: /api/sellers/**
         allowed-roles: [SELLER, ADMIN]
       - methods: [POST, PUT, PATCH, DELETE]
-        pattern: /api/product/**
+        pattern: /api/products/**
         allowed-roles: [SELLER, ADMIN]
       - methods: [POST, GET]
         pattern: /api/settlements/**

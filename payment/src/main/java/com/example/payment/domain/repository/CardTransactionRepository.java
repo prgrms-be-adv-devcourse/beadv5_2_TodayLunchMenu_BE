@@ -14,4 +14,8 @@ public interface CardTransactionRepository {
     Optional<CardTransaction> findByCardTransactionId(UUID cardTransactionId);
 
     List<CardTransaction> findByTransactionGroupId(UUID transactionGroupId);
+
+    List<CardTransaction> findSuccessfulPaymentsByOrderItemIds(List<UUID> orderItemIds);
+
+    List<CardTransaction> findSuccessfulCancelsByRelatedTransactionIds(List<UUID> relatedTransactionIds);
 }

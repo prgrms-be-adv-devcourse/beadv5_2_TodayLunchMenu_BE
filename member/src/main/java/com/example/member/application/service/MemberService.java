@@ -30,6 +30,7 @@ public class MemberService implements MemberUsecase {
     private final PasswordEncoder passwordEncoder;
     private final MemberEventPublisher memberEventPublisher;
     private final ProfileImageUrlResolver profileImageUrlResolver;
+    private final EmailVerificationService emailVerificationService;
 
     @Transactional
     @Override
@@ -59,8 +60,8 @@ public class MemberService implements MemberUsecase {
         );
 
         Member savedMember = memberRepository.save(member);
-
-        memberEventPublisher.publishMemberSignedUp(savedMember); // 회원 가입 이벤트 발행
+        emailVerificationService.createSignupVerification(savedMember);     // 회원 가입 이메일 인증 생성 및 발송
+        memberEventPublisher.publishMemberSignedUp(savedMember);            // 회원 가입 이벤트 발행
         
         return CreateMemberResponse.from(savedMember, resolveProfileImageUrl(savedMember));
     }

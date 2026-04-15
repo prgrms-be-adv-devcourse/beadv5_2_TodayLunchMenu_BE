@@ -75,6 +75,44 @@ public class MemberExceptionHandler {
                 .body(ApiResponse.fail("INVALID_LOGIN", exception.getMessage()));
     }
 
+    @ExceptionHandler(EmailVerificationRequiredException.class)
+    public ResponseEntity<ApiResponse<Object>> handleEmailVerificationRequired(
+            EmailVerificationRequiredException exception
+    ) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.fail("EMAIL_VERIFICATION_REQUIRED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidEmailVerificationTokenException.class)
+    public ResponseEntity<ApiResponse<Object>> handleInvalidEmailVerificationToken(
+            InvalidEmailVerificationTokenException exception
+    ) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail("EMAIL_VERIFICATION_TOKEN_INVALID", exception.getMessage()));
+    }
+
+    @ExceptionHandler(ExpiredEmailVerificationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleExpiredEmailVerification(
+            ExpiredEmailVerificationException exception
+    ) {
+        return ResponseEntity.status(HttpStatus.GONE)
+                .body(ApiResponse.fail("EMAIL_VERIFICATION_TOKEN_EXPIRED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(EmailVerificationNotAllowedException.class)
+    public ResponseEntity<ApiResponse<Object>> handleEmailVerificationNotAllowed(
+            EmailVerificationNotAllowedException exception
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.fail("EMAIL_VERIFICATION_NOT_ALLOWED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(EmailSendFailedException.class)
+    public ResponseEntity<ApiResponse<Object>> handleEmailSendFailed(EmailSendFailedException exception) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.fail("EMAIL_SEND_FAILED", exception.getMessage()));
+    }
+
     @ExceptionHandler(MemberRestrictedException.class)
     public ResponseEntity<ApiResponse<Object>> handleMemberRestricted(MemberRestrictedException exception) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)

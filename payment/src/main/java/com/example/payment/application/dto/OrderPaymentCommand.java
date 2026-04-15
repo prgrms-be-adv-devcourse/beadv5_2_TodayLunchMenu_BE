@@ -12,7 +12,7 @@ public record OrderPaymentCommand(
         UUID orderId,
         UUID buyerMemberId,
         Long orderAmount,
-        List<OrderPaymentSellerCommand> sellerPayments,
+        List<OrderPaymentLineCommand> paymentLines,
         LocalDateTime releaseAt
 ) {
 }

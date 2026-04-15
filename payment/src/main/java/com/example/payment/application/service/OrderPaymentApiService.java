@@ -1,8 +1,8 @@
 package com.example.payment.application.service;
 
 import com.example.payment.application.dto.OrderPaymentCommand;
+import com.example.payment.application.dto.OrderPaymentLineCommand;
 import com.example.payment.application.dto.OrderPaymentResult;
-import com.example.payment.application.dto.OrderPaymentSellerCommand;
 import com.example.payment.application.usecase.OrderPaymentApiUseCase;
 import com.example.payment.application.usecase.OrderPaymentUseCase;
 import com.example.payment.common.exception.InvalidOrderPaymentRequestException;
@@ -17,14 +17,14 @@ import com.example.payment.presentation.dto.response.OrderPaymentApiResponse;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 /**
  * 주문 결제 API 진입 서비스다.
- * 기존 Kafka consumer가 수행하던 요청 검증, seller 집계, 실패 코드 매핑을 담당한다.
+ * 기존 Kafka consumer가 수행하던 요청 검증, orderItem 단위 정규화, 실패 코드 매핑을 담당한다.
  */
 @Service
 public class OrderPaymentApiService implements OrderPaymentApiUseCase {
@@ -49,9 +49,7 @@ public class OrderPaymentApiService implements OrderPaymentApiUseCase {
                     request.orderId(),
                     request.buyerId(),
                     toAmount(request.totalPrice()),
-                    // todo : 부분 취소, 부분 환불, 부분 배송 완료 등을 처리하기 위해서 변경이 필요함
-                    // seller별로 합치는 것이 아닌 orderLine 단위로 escrow를 생성하는 방향으로 변경해야할 수도 있음
-                    aggregateSellerPayments(request.orderLines()),
+                    toPaymentLines(request.orderLines()),
                     null
             ));
             return successResponse(request, result);
@@ -127,12 +125,16 @@ public class OrderPaymentApiService implements OrderPaymentApiUseCase {
         }
 
         BigDecimal lineTotalAmount = BigDecimal.ZERO;
+        Set<UUID> seenOrderItemIds = new HashSet<>();
         for (OrderPaymentApiOrderLineRequest orderLine : request.orderLines()) {
             if (orderLine == null) {
                 throw new InvalidOrderPaymentRequestException("orderLines must not contain null.");
             }
             if (orderLine.orderItemId() == null) {
                 throw new InvalidOrderPaymentRequestException("orderItemId is required.");
+            }
+            if (!seenOrderItemIds.add(orderLine.orderItemId())) {
+                throw new InvalidOrderPaymentRequestException("orderItemId must be unique in orderLines.");
             }
             if (orderLine.sellerId() == null) {
                 throw new InvalidOrderPaymentRequestException("sellerId is required.");
@@ -151,16 +153,14 @@ public class OrderPaymentApiService implements OrderPaymentApiUseCase {
         }
     }
 
-    // orderLines를 seller 기준으로 집계해 sellerId - sellerReceivableAmount 매핑으로 변환한다.
-    private List<OrderPaymentSellerCommand> aggregateSellerPayments(List<OrderPaymentApiOrderLineRequest> orderLines) {
-        Map<UUID, Long> sellerPaymentMap = orderLines.stream()
-                .collect(Collectors.groupingBy(
-                        OrderPaymentApiOrderLineRequest::sellerId,
-                        Collectors.summingLong(line -> toAmount(line.lineTotalPrice()))
-                ));
-
-        return sellerPaymentMap.entrySet().stream()
-                .map(entry -> new OrderPaymentSellerCommand(entry.getKey(), entry.getValue()))
+    // orderLines를 orderItem 단위 결제 입력으로 정규화한다.
+    private List<OrderPaymentLineCommand> toPaymentLines(List<OrderPaymentApiOrderLineRequest> orderLines) {
+        return orderLines.stream()
+                .map(line -> new OrderPaymentLineCommand(
+                        line.orderItemId(),
+                        line.sellerId(),
+                        toAmount(line.lineTotalPrice())
+                ))
                 .toList();
     }
 

@@ -17,6 +17,19 @@ erDiagram
         TIMESTAMP updated_at
     }
 
+    EMAIL_VERIFICATION {
+        UUID verification_id PK
+        UUID member_id FK
+        VARCHAR email
+        VARCHAR token UK
+        VARCHAR purpose
+        VARCHAR status
+        TIMESTAMP expires_at
+        TIMESTAMP verified_at
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
     SELLER {
         UUID seller_id PK
         UUID member_id UK
@@ -52,19 +65,13 @@ erDiagram
         TIMESTAMP updated_at
     }
 
+    MEMBER ||--o{ EMAIL_VERIFICATION : "has verification history"
     MEMBER ||--o| SELLER : "owns seller profile"
     MEMBER ||--o{ MEMBER_REPORT : "reporter_id creates"
     MEMBER ||--o{ MEMBER_REPORT : "reported_member_id receives"
     MEMBER ||--o{ MEMBER_RESTRICTION : "member_id is restricted"
     MEMBER ||--o{ MEMBER_RESTRICTION : "admin_id manages"
 ```
-
-## 관계 해설
-- `MEMBER -> SELLER`: 회원은 0개 또는 1개의 판매자 프로필을 가진다.
-- `MEMBER -> MEMBER_REPORT (reporter_id)`: 회원은 여러 신고를 생성할 수 있다.
-- `MEMBER -> MEMBER_REPORT (reported_member_id)`: 회원은 여러 신고의 대상이 될 수 있다.
-- `MEMBER -> MEMBER_RESTRICTION (member_id)`: 회원은 여러 제재 이력을 가질 수 있다.
-- `MEMBER -> MEMBER_RESTRICTION (admin_id)`: 관리자 회원은 여러 제재를 생성할 수 있다.
 
 ## 엔티티
 
@@ -83,7 +90,19 @@ erDiagram
 | `created_at` | TIMESTAMP | NOT NULL |
 | `updated_at` | TIMESTAMP | NOT NULL |
 
-인덱스: `uk_member_email`, `idx_member_nickname`, `idx_member_role`, `idx_member_status`
+### `member_service.email_verification`
+| 컬럼 | 타입 | 제약 |
+| --- | --- | --- |
+| `verification_id` | UUID | PK |
+| `member_id` | UUID | NOT NULL |
+| `email` | VARCHAR(255) | NOT NULL |
+| `token` | VARCHAR(255) | NOT NULL, UNIQUE |
+| `purpose` | VARCHAR(30) | NOT NULL |
+| `status` | VARCHAR(30) | NOT NULL |
+| `expires_at` | TIMESTAMP | NOT NULL |
+| `verified_at` | TIMESTAMP | NULL |
+| `created_at` | TIMESTAMP | NOT NULL |
+| `updated_at` | TIMESTAMP | NOT NULL |
 
 ### `member_service.seller`
 | 컬럼 | 타입 | 제약 |
@@ -93,8 +112,6 @@ erDiagram
 | `bank_name` | VARCHAR(100) | NULL |
 | `account` | VARCHAR(100) | NULL |
 | `approved_at` | TIMESTAMP | NULL |
-
-인덱스: `uk_seller_member_id`, `idx_seller_approved_at`
 
 ### `member_service.member_report`
 | 컬럼 | 타입 | 제약 |
@@ -111,8 +128,6 @@ erDiagram
 | `created_at` | TIMESTAMP | NOT NULL |
 | `updated_at` | TIMESTAMP | NOT NULL |
 
-인덱스: `idx_member_report_reporter_id`, `idx_member_report_reported_member_id`, `idx_member_report_status`
-
 ### `member_service.member_restriction`
 | 컬럼 | 타입 | 제약 |
 | --- | --- | --- |
@@ -121,17 +136,8 @@ erDiagram
 | `admin_id` | UUID | NOT NULL |
 | `reason` | VARCHAR(255) | NOT NULL |
 | `restriction_type` | VARCHAR(30) | NOT NULL |
-| `duration_hours` | INTEGER | NOT NULL, `> 0` |
+| `duration_hours` | INTEGER | NOT NULL |
 | `end_at` | TIMESTAMP | NOT NULL |
 | `is_active` | BOOLEAN | NOT NULL |
 | `created_at` | TIMESTAMP | NOT NULL |
 | `updated_at` | TIMESTAMP | NULL |
-
-인덱스: `idx_member_restriction_member_id`, `idx_member_restriction_active_lookup`
-
-## 관계
-- `member 1 : 0..1 seller`
-- `member 1 : N member_report` as reporter
-- `member 1 : N member_report` as reported member
-- `member 1 : N member_restriction` as restricted target
-- `member 1 : N member_restriction` as admin actor

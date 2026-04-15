@@ -7,12 +7,15 @@ import com.example.payment.application.dto.ChargeConfirmCommand;
 import com.example.payment.application.dto.ChargeConfirmFailureCommand;
 import com.example.payment.application.dto.ChargeCreateCommand;
 import com.example.payment.application.dto.ChargeRefundCommand;
+import com.example.payment.application.dto.PaymentRefundCommand;
+import com.example.payment.application.dto.PaymentRefundItemCommand;
 import com.example.payment.application.usecase.CardPaymentConfirmUseCase;
 import com.example.payment.application.usecase.ChargeConfirmFailureUseCase;
 import com.example.payment.application.usecase.ChargeConfirmUseCase;
 import com.example.payment.application.usecase.ChargeCreateUseCase;
 import com.example.payment.application.usecase.ChargeRefundUseCase;
 import com.example.payment.application.usecase.OrderPaymentApiUseCase;
+import com.example.payment.application.usecase.PaymentRefundUseCase;
 import com.example.payment.application.usecase.PaymentSearchUseCase;
 import com.example.payment.presentation.dto.request.ChargeConfirmFailureRequest;
 import com.example.payment.presentation.dto.request.ChargeConfirmRequest;
@@ -20,6 +23,7 @@ import com.example.payment.presentation.dto.request.ChargeCreateRequest;
 import com.example.payment.presentation.dto.request.ChargeRefundRequest;
 import com.example.payment.presentation.dto.request.CardPaymentConfirmRequest;
 import com.example.payment.presentation.dto.request.OrderPaymentApiRequest;
+import com.example.payment.presentation.dto.request.PaymentRefundRequest;
 import com.example.payment.presentation.dto.response.ApiResponse;
 import com.example.payment.presentation.dto.response.CardPaymentConfirmResponse;
 import com.example.payment.presentation.dto.response.ChargeConfirmFailureResponse;
@@ -31,6 +35,7 @@ import com.example.payment.presentation.dto.response.ChargeRefundSummaryResponse
 import com.example.payment.presentation.dto.response.ChargeRefundResponse;
 import com.example.payment.presentation.dto.response.OrderPaymentApiResponse;
 import com.example.payment.presentation.dto.response.PagedResponse;
+import com.example.payment.presentation.dto.response.PaymentRefundResponse;
 import com.example.payment.presentation.dto.response.PendingSellerIncomeItemResponse;
 import com.example.payment.presentation.dto.response.WalletSummaryResponse;
 import com.example.payment.presentation.dto.response.WalletTransactionItemResponse;
@@ -64,6 +69,7 @@ public class PaymentController {
     private final CardPaymentConfirmUseCase cardPaymentConfirmUseCase;
     private final ChargeConfirmFailureUseCase chargeConfirmFailureUseCase;
     private final ChargeRefundUseCase chargeRefundUseCase;
+    private final PaymentRefundUseCase paymentRefundUseCase;
     private final PaymentSearchUseCase paymentSearchUseCase;
     private final OrderPaymentApiUseCase orderPaymentApiUseCase;
 
@@ -73,6 +79,7 @@ public class PaymentController {
             CardPaymentConfirmUseCase cardPaymentConfirmUseCase,
             ChargeConfirmFailureUseCase chargeConfirmFailureUseCase,
             ChargeRefundUseCase chargeRefundUseCase,
+            PaymentRefundUseCase paymentRefundUseCase,
             PaymentSearchUseCase paymentSearchUseCase,
             OrderPaymentApiUseCase orderPaymentApiUseCase
     ) {
@@ -81,6 +88,7 @@ public class PaymentController {
         this.cardPaymentConfirmUseCase = cardPaymentConfirmUseCase;
         this.chargeConfirmFailureUseCase = chargeConfirmFailureUseCase;
         this.chargeRefundUseCase = chargeRefundUseCase;
+        this.paymentRefundUseCase = paymentRefundUseCase;
         this.paymentSearchUseCase = paymentSearchUseCase;
         this.orderPaymentApiUseCase = orderPaymentApiUseCase;
     }
@@ -307,6 +315,27 @@ public class PaymentController {
     ) {
         ChargeRefundCommand command = new ChargeRefundCommand(chargeId, request.refundReason());
         ChargeRefundResponse response = ChargeRefundResponse.from(chargeRefundUseCase.refundCharge(command));
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/refunds")
+    @Operation(summary = "주문 환불 요청")
+    public ResponseEntity<ApiResponse<PaymentRefundResponse>> requestPaymentRefund(
+            @Valid @RequestBody PaymentRefundRequest request
+    ) {
+        PaymentRefundCommand command = new PaymentRefundCommand(
+                request.orderId(),
+                request.buyerMemberId(),
+                request.orderCancelRequestId(),
+                request.refundType(),
+                request.paymentMethod(),
+                request.reason(),
+                request.items().stream()
+                        .map(item -> new PaymentRefundItemCommand(item.orderItemId(), item.refundAmount()))
+                        .toList()
+        );
+
+        PaymentRefundResponse response = PaymentRefundResponse.from(paymentRefundUseCase.requestRefund(command));
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
