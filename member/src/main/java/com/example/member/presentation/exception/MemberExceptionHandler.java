@@ -4,6 +4,11 @@ import com.example.member.common.exception.DuplicateActiveRestrictionException;
 import com.example.member.common.exception.DuplicateMemberEmailException;
 
 import com.example.member.common.exception.DuplicateMemberReportException;
+import com.example.member.common.exception.EmailSendFailedException;
+import com.example.member.common.exception.EmailVerificationNotAllowedException;
+import com.example.member.common.exception.EmailVerificationRequiredException;
+import com.example.member.common.exception.ExpiredEmailVerificationException;
+import com.example.member.common.exception.InvalidEmailVerificationTokenException;
 import com.example.member.common.exception.InvalidLoginException;
 import com.example.member.common.exception.MemberNotFoundException;
 import com.example.member.common.exception.MemberReportNotFoundException;
