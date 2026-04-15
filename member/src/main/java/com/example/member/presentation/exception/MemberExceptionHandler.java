@@ -2,6 +2,7 @@ package com.example.member.presentation.exception;
 
 import com.example.member.common.exception.DuplicateActiveRestrictionException;
 import com.example.member.common.exception.DuplicateMemberEmailException;
+import com.example.member.common.exception.DuplicateMemberReportException;
 import com.example.member.common.exception.EmailSendFailedException;
 import com.example.member.common.exception.EmailVerificationNotAllowedException;
 import com.example.member.common.exception.EmailVerificationRequiredException;
