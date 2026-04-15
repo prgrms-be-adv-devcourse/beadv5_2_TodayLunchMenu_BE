@@ -1,13 +1,16 @@
 package com.example.member.presentation.exception;
 
 import com.example.member.common.exception.DuplicateActiveRestrictionException;
-import com.example.member.common.exception.DuplicateMemberReportException;
 import com.example.member.common.exception.DuplicateMemberEmailException;
+
+import com.example.member.common.exception.DuplicateMemberReportException;
 import com.example.member.common.exception.InvalidLoginException;
 import com.example.member.common.exception.MemberNotFoundException;
 import com.example.member.common.exception.MemberReportNotFoundException;
 import com.example.member.common.exception.MemberRestrictedException;
 import com.example.member.common.exception.MemberRestrictionNotFoundException;
+import com.example.member.common.exception.PendingSellerRegistrationAlreadyExistsException;
+import com.example.member.common.exception.PendingSellerRegistrationNotFoundException;
 import com.example.member.common.exception.RefreshTokenNotFoundException;
 import com.example.member.common.exception.SelfReportNotAllowedException;
 import com.example.member.common.exception.SellerAlreadyRegisteredException;
@@ -48,6 +51,22 @@ public class MemberExceptionHandler {
     public ResponseEntity<ApiResponse<Object>> handleSellerNotFound(SellerNotFoundException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.fail("SELLER_NOT_FOUND", exception.getMessage()));
+    }
+
+    @ExceptionHandler(PendingSellerRegistrationAlreadyExistsException.class)
+    public ResponseEntity<ApiResponse<Object>> handlePendingSellerRegistrationAlreadyExists(
+            PendingSellerRegistrationAlreadyExistsException exception
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.fail("PENDING_SELLER_REGISTRATION_ALREADY_EXISTS", exception.getMessage()));
+    }
+
+    @ExceptionHandler(PendingSellerRegistrationNotFoundException.class)
+    public ResponseEntity<ApiResponse<Object>> handlePendingSellerRegistrationNotFound(
+            PendingSellerRegistrationNotFoundException exception
+    ) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.fail("PENDING_SELLER_REGISTRATION_NOT_FOUND", exception.getMessage()));
     }
 
     @ExceptionHandler(InvalidLoginException.class)

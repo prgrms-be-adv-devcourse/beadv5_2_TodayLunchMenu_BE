@@ -2,16 +2,23 @@ package com.example.member.application.service;
 
 import com.example.member.application.usecase.SellerUsecase;
 import com.example.member.common.exception.MemberNotFoundException;
+import com.example.member.common.exception.PendingSellerRegistrationAlreadyExistsException;
+import com.example.member.common.exception.PendingSellerRegistrationNotFoundException;
 import com.example.member.common.exception.SellerAlreadyRegisteredException;
 import com.example.member.common.exception.SellerNotFoundException;
+import com.example.member.config.SellerAutoPromotionProperties;
 import com.example.member.domain.entity.Member;
 import com.example.member.domain.entity.Seller;
+import com.example.member.domain.enumtype.SellerRegistrationStatus;
+import com.example.member.infrastructure.redis.SellerPendingRegistration;
+import com.example.member.infrastructure.redis.SellerPendingStore;
 import com.example.member.infrastructure.repository.MemberRepository;
 import com.example.member.infrastructure.repository.SellerRepository;
+import com.example.member.presentation.dto.SellerPendingResponse;
 import com.example.member.presentation.dto.SellerRegisterRequest;
 import com.example.member.presentation.dto.SellerRegisterResponse;
 import com.example.member.presentation.dto.SellerResponse;
-import com.todaylunch.common.security.auth.enumtype.MemberRole;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -25,38 +32,45 @@ public class SellerService implements SellerUsecase {
 
     private final SellerRepository sellerRepository;
     private final MemberRepository memberRepository;
+    private final SellerPendingStore sellerPendingStore;
+    private final SellerAutoPromotionProperties sellerAutoPromotionProperties;
 
-    // 판매자 등록
     @Transactional
     @Override
-    public SellerRegisterResponse registerSeller(
-            UUID memberId, 
-            SellerRegisterRequest request
-        ) {
+    public SellerRegisterResponse registerSeller(UUID memberId, SellerRegisterRequest request) {
         validateRegisterRequest(request);
-        Member member = getMember(memberId);
+        getMember(memberId);
 
         if (sellerRepository.existsByMemberId(memberId)) {
             throw new SellerAlreadyRegisteredException();
         }
 
-        // 판매자 엔티티 생성 및 저장
+        if (sellerPendingStore.findByMemberId(memberId).isPresent()) {
+            throw new PendingSellerRegistrationAlreadyExistsException();
+        }
+
         LocalDateTime now = LocalDateTime.now();
-        Seller seller = Seller.create(
-                UUID.randomUUID(),
+        SellerPendingRegistration pendingRegistration = new SellerPendingRegistration(
                 memberId,
                 normalizeRequired(request.bankName(), "bankName"),
                 normalizeRequired(request.account(), "account"),
-                now
+                now,
+                now.plus(sellerAutoPromotionProperties.delay()),
+                SellerRegistrationStatus.PENDING
         );
 
-        // 회원의 역할을 SELLER로 변경
-        member.changeRole(MemberRole.SELLER, now);
-
-        return SellerRegisterResponse.from(sellerRepository.save(seller));
+        sellerPendingStore.save(pendingRegistration, resolvePendingTtl());
+        return SellerRegisterResponse.from(pendingRegistration);
     }
 
-    // `판매자 정보 조회
+    @Override
+    public SellerPendingResponse getPendingSellerRegistration(UUID memberId) {
+        getMember(memberId);
+        SellerPendingRegistration pendingRegistration = sellerPendingStore.findByMemberId(memberId)
+                .orElseThrow(PendingSellerRegistrationNotFoundException::new);
+        return SellerPendingResponse.from(pendingRegistration);
+    }
+
     @Override
     public SellerResponse getCurrentSeller(UUID memberId) {
         getMember(memberId);
@@ -81,5 +95,13 @@ public class SellerService implements SellerUsecase {
             throw new IllegalArgumentException(fieldName + " is required.");
         }
         return value.trim();
+    }
+
+    private Duration resolvePendingTtl() {
+        Duration pendingTtl = sellerAutoPromotionProperties.pendingTtl();
+        if (pendingTtl == null || pendingTtl.isNegative() || pendingTtl.isZero()) {
+            return sellerAutoPromotionProperties.delay().plusDays(1);
+        }
+        return pendingTtl;
     }
 }

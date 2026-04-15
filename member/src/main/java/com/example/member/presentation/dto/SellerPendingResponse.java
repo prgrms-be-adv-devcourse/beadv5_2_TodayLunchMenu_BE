@@ -5,7 +5,7 @@ import com.example.member.infrastructure.redis.SellerPendingRegistration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public record SellerRegisterResponse(
+public record SellerPendingResponse(
         UUID memberId,
         String bankName,
         String account,
@@ -14,8 +14,8 @@ public record SellerRegisterResponse(
         SellerRegistrationStatus status
 ) {
 
-    public static SellerRegisterResponse from(SellerPendingRegistration registration) {
-        return new SellerRegisterResponse(
+    public static SellerPendingResponse from(SellerPendingRegistration registration) {
+        return new SellerPendingResponse(
                 registration.memberId(),
                 registration.bankName(),
                 registration.account(),
