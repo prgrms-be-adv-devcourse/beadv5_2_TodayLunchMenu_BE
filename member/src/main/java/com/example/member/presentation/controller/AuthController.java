@@ -1,14 +1,17 @@
 package com.example.member.presentation.controller;
 
-import com.example.member.application.service.AuthService;
-import com.example.member.application.service.MemberService;
+import com.example.member.application.service.EmailVerificationService;
 import com.example.member.application.usecase.AuthUsecase;
 import com.example.member.application.usecase.MemberUsecase;
 import com.example.member.presentation.dto.ApiResponse;
+import com.example.member.presentation.dto.ConfirmEmailVerificationRequest;
 import com.example.member.presentation.dto.CreateMemberRequest;
 import com.example.member.presentation.dto.CreateMemberResponse;
+import com.example.member.presentation.dto.EmailVerificationConfirmResponse;
+import com.example.member.presentation.dto.EmailVerificationSendResponse;
 import com.example.member.presentation.dto.LoginRequest;
 import com.example.member.presentation.dto.LoginResponse;
+import com.example.member.presentation.dto.SendEmailVerificationRequest;
 import com.example.member.presentation.dto.TokenRefreshRequest;
 import com.example.member.presentation.dto.TokenRefreshResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,6 +37,7 @@ public class AuthController {
 
     private final AuthUsecase authUsecase;
     private final MemberUsecase memberUsecase;
+    private final EmailVerificationService emailVerificationService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -61,5 +65,28 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> logout(@PathVariable UUID memberId) {
         authUsecase.logout(memberId);
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @PostMapping("/email-verifications")
+    @Operation(summary = "이메일 인증 재발송", description = "회원 가입 이메일 인증 토큰을 재발급하고 이메일로 발송합니다.")
+    public ResponseEntity<ApiResponse<EmailVerificationSendResponse>> sendEmailVerification(
+            @RequestBody SendEmailVerificationRequest request
+    ) {
+        var emailVerification = emailVerificationService.resendSignupVerification(request.email());
+        return ResponseEntity.ok(ApiResponse.success(new EmailVerificationSendResponse(
+                emailVerification.getEmail(),
+                emailVerification.getPurpose().name(),
+                emailVerification.getStatus().name(),
+                emailVerification.getExpiresAt()
+        )));
+    }
+
+    @PostMapping("/email-verifications/confirm")
+    @Operation(summary = "이메일 인증 확인", description = "회원 가입 이메일 인증 토큰을 검증하여 회원의 상태를 ACTIVE로 변경합니다.")
+    public ResponseEntity<ApiResponse<EmailVerificationConfirmResponse>> confirmEmailVerification(
+            @RequestBody ConfirmEmailVerificationRequest request
+    ) {
+        var member = emailVerificationService.confirmSignupVerification(request.token());
+        return ResponseEntity.ok(ApiResponse.success(EmailVerificationConfirmResponse.from(member)));
     }
 }

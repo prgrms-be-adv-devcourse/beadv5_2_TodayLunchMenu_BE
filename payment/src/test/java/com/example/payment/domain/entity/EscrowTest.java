@@ -106,23 +106,20 @@ class EscrowTest {
 
         @Test
         @DisplayName("HELD 상태에서 REFUNDED로 전이된다")
-        void refund_heldEscrow_changesStatus() {
+        void refund_nonZeroBalanceHeldEscrow_throwsException() {
             Escrow escrow = Escrow.createHeld(escrowId, orderId, buyerMemberId, sellerMemberId, 12_000L, releaseAt, createdAt);
             LocalDateTime refundedAt = createdAt.plusDays(1);
 
-            escrow.refund(refundedAt, refundedAt);
-
-            assertThat(escrow.getEscrowStatus()).isEqualTo(EscrowStatus.REFUNDED);
-            assertThat(escrow.getRefundedAt()).isEqualTo(refundedAt);
-            assertThat(escrow.getUpdatedAt()).isEqualTo(refundedAt);
-            assertThat(escrow.isRefunded()).isTrue();
+            assertThatThrownBy(() -> escrow.refund(refundedAt, refundedAt))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("zero-balance");
         }
 
         @Test
         @DisplayName("이미 REFUNDED 상태면 다시 refund() 할 수 없다")
         void refund_refundedEscrow_throwsException() {
             Escrow escrow = Escrow.createHeld(escrowId, orderId, buyerMemberId, sellerMemberId, 12_000L, releaseAt, createdAt);
-            escrow.refund(createdAt.plusDays(1), createdAt.plusDays(1));
+            escrow.applyRefundAmount(12_000L, createdAt.plusDays(1), createdAt.plusDays(1));
 
             assertThatThrownBy(() -> escrow.refund(createdAt.plusDays(2), createdAt.plusDays(2)))
                     .isInstanceOf(IllegalStateException.class)

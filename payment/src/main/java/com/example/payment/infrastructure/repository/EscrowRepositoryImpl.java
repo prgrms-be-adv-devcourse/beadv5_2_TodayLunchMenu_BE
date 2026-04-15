@@ -1,6 +1,7 @@
 package com.example.payment.infrastructure.repository;
 
 import com.example.payment.domain.entity.Escrow;
+import com.example.payment.domain.enumtype.EscrowReferenceType;
 import com.example.payment.domain.enumtype.EscrowStatus;
 import com.example.payment.domain.repository.EscrowRepository;
 import java.time.LocalDateTime;
@@ -40,13 +41,23 @@ public class EscrowRepositoryImpl implements EscrowRepository {
     }
 
     @Override
-    public Optional<Escrow> findByOrderIdAndSellerMemberId(UUID orderId, UUID sellerMemberId) {
-        return escrowJpaRepository.findByOrderIdAndSellerMemberId(orderId, sellerMemberId);
+    public List<Escrow> findAllByOrderIdAndSellerMemberId(UUID orderId, UUID sellerMemberId) {
+        return escrowJpaRepository.findAllByOrderIdAndSellerMemberId(orderId, sellerMemberId);
     }
 
     @Override
     public List<Escrow> findAllByOrderId(UUID orderId) {
         return escrowJpaRepository.findAllByOrderId(orderId);
+    }
+
+    @Override
+    public List<Escrow> lockAllByOrderId(UUID orderId) {
+        return escrowJpaRepository.findWithLockByOrderId(orderId);
+    }
+
+    @Override
+    public List<Escrow> findAllByReferenceTypeAndReferenceIdIn(EscrowReferenceType referenceType, List<UUID> referenceIds) {
+        return escrowJpaRepository.findAllByReferenceTypeAndReferenceIdIn(referenceType, referenceIds);
     }
 
     @Override

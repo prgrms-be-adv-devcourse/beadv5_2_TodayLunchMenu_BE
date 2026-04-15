@@ -27,6 +27,8 @@ dependencies {
     implementation project(':common-security')
     // Web
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    // Mail
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
     // JPA
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     // Redis

@@ -1,6 +1,7 @@
 package com.example.member.application.service;
 
 import com.example.member.application.usecase.AuthUsecase;
+import com.example.member.common.exception.EmailVerificationRequiredException;
 import com.example.member.common.exception.InvalidLoginException;
 import com.example.member.common.exception.MemberRestrictedException;
 import com.example.member.common.exception.RefreshTokenNotFoundException;
@@ -31,6 +32,9 @@ public class AuthService implements AuthUsecase {
     private final RefreshTokenStore refreshTokenStore;
     private final MemberRestrictionService memberRestrictionService;
 
+    /**
+     * 로그인 - 이메일과 비밀번호로 회원 인증 후 JWT 액세스 토큰과 리프레시 토큰을 발급한다.
+     */
     @Override
     public LoginResponse login(LoginRequest request) {
         validateLoginRequest(request);
@@ -65,6 +69,10 @@ public class AuthService implements AuthUsecase {
         );
     }
 
+    /**
+     * 토큰 재발급 - 유효한 리프레시 토큰을 제출하면 새로운 액세스 토큰과 리프레시 토큰을 발급한다. 
+     * 기존 리프레시 토큰은 무효화된다.
+     */
     @Override
     public TokenRefreshResponse refresh(TokenRefreshRequest request) {
         validateRefreshRequest(request);
@@ -98,6 +106,9 @@ public class AuthService implements AuthUsecase {
         );
     }
 
+    /**
+     * 로그아웃 - 회원의 리프레시 토큰을 무효화한다.
+     */
     @Override
     public void logout(UUID memberId) {
         refreshTokenStore.delete(memberId);
@@ -134,7 +145,7 @@ public class AuthService implements AuthUsecase {
 
     private void validateActiveMember(Member member) {
         if (!member.isActive()) {
-            throw new IllegalStateException("Only ACTIVE members can authenticate.");
+            throw new EmailVerificationRequiredException();
         }
     }
 }

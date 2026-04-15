@@ -1,6 +1,7 @@
 package com.example.payment.domain.repository;
 
 import com.example.payment.domain.entity.Escrow;
+import com.example.payment.domain.enumtype.EscrowReferenceType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -26,12 +27,16 @@ public interface EscrowRepository {
     /**
      * seller별 구매확정/해제 처리를 위해 주문과 seller 기준으로 escrow를 찾는다.
      */
-    Optional<Escrow> findByOrderIdAndSellerMemberId(UUID orderId, UUID sellerMemberId);
+    List<Escrow> findAllByOrderIdAndSellerMemberId(UUID orderId, UUID sellerMemberId);
 
     /**
      * 배송완료처럼 주문 단위 이벤트가 들어올 때 해당 주문의 escrow 전체를 조회한다.
      */
     List<Escrow> findAllByOrderId(UUID orderId);
+
+    List<Escrow> lockAllByOrderId(UUID orderId);
+
+    List<Escrow> findAllByReferenceTypeAndReferenceIdIn(EscrowReferenceType referenceType, List<UUID> referenceIds);
 
     List<Escrow> findReleaseTargets(LocalDateTime releaseAt);
 

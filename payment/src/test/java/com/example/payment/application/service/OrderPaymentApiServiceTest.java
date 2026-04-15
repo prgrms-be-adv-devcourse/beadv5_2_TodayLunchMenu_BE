@@ -8,8 +8,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.example.payment.application.dto.OrderPaymentCommand;
+import com.example.payment.application.dto.OrderPaymentLineCommand;
 import com.example.payment.application.dto.OrderPaymentResult;
-import com.example.payment.application.dto.OrderPaymentSellerCommand;
 import com.example.payment.application.usecase.OrderPaymentUseCase;
 import com.example.payment.common.exception.InvalidOrderPaymentRequestException;
 import com.example.payment.common.exception.WalletNotFoundException;
@@ -83,8 +83,12 @@ class OrderPaymentApiServiceTest {
 
         ArgumentCaptor<OrderPaymentCommand> commandCaptor = ArgumentCaptor.forClass(OrderPaymentCommand.class);
         verify(orderPaymentUseCase).payOrder(commandCaptor.capture());
-        assertThat(commandCaptor.getValue().sellerPayments())
-                .containsExactly(new OrderPaymentSellerCommand(sellerId, 12000L));
+        assertThat(commandCaptor.getValue().paymentLines())
+                .containsExactly(new OrderPaymentLineCommand(
+                        request.orderLines().get(0).orderItemId(),
+                        sellerId,
+                        12000L
+                ));
 
         ArgumentCaptor<OrderPaymentResultMessage> eventCaptor = ArgumentCaptor.forClass(OrderPaymentResultMessage.class);
         verify(orderPaymentResultEventPublisher).publish(eventCaptor.capture());

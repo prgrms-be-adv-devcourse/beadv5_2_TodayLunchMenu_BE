@@ -7,6 +7,8 @@
 | `POST` | `/api/auth/login` | 로그인 | Body: `email`, `password` | 완료 |
 | `POST` | `/api/auth/refresh` | 액세스 토큰 재발급 | Body: `refreshToken` | 완료 |
 | `POST` | `/api/auth/logout/{memberId}` | 로그아웃 | Path: `memberId` | 완료 |
+| `POST` | `/api/auth/email-verifications` | 이메일 인증 재발송 | Body: `email` | 완료 |
+| `POST` | `/api/auth/email-verifications/confirm` | 이메일 인증 확인 | Body: `token` | 완료 |
 
 ## 공통 응답 형식
 ```json
@@ -31,19 +33,6 @@
 | Body | `profileImageKey` | String | N |
 | Body | `role` | String | N |
 
-#### Request JSON
-```json
-{
-  "email": "user@test.local",
-  "password": "password123!",
-  "nickname": "점심유저",
-  "phone": "010-1234-5678",
-  "address": "서울시 강남구",
-  "profileImageKey": "profiles/2026/04/user.png",
-  "role": "USER"
-}
-```
-
 #### Response JSON
 ```json
 {
@@ -67,47 +56,31 @@
 ## 2. 로그인
 ### `POST /api/auth/login`
 
-#### 요청 시 필요한 데이터
-| 위치 | 필드 | 타입 | 필수 |
-| --- | --- | --- | --- |
-| Body | `email` | String | Y |
-| Body | `password` | String | Y |
-
-#### Request JSON
-```json
-{
-  "email": "user@test.local",
-  "password": "password123!"
-}
-```
-
-#### Response JSON
-```json
-{
-  "success": true,
-  "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiJ9.access-token",
-    "refreshToken": "eyJhbGciOiJIUzI1NiJ9.refresh-token",
-    "tokenType": "Bearer",
-    "accessTokenExpiresIn": 3600000,
-    "refreshTokenExpiresIn": 1209600000
-  },
-  "error": null
-}
-```
+#### 비고
+- `ACTIVE` 상태 회원만 로그인 가능하다.
+- `PENDING_VERIFICATION` 상태 회원은 로그인할 수 없다.
 
 ## 3. 토큰 재발급
 ### `POST /api/auth/refresh`
 
+#### 비고
+- `ACTIVE` 상태 회원만 refresh token 재발급 가능하다.
+
+## 4. 로그아웃
+### `POST /api/auth/logout/{memberId}`
+
+## 5. 이메일 인증 재발송
+### `POST /api/auth/email-verifications`
+
 #### 요청 시 필요한 데이터
 | 위치 | 필드 | 타입 | 필수 |
 | --- | --- | --- | --- |
-| Body | `refreshToken` | String | Y |
+| Body | `email` | String | Y |
 
 #### Request JSON
 ```json
 {
-  "refreshToken": "eyJhbGciOiJIUzI1NiJ9.refresh-token"
+  "email": "user@test.local"
 }
 ```
 
@@ -116,34 +89,39 @@
 {
   "success": true,
   "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiJ9.new-access-token",
-    "refreshToken": "eyJhbGciOiJIUzI1NiJ9.refresh-token",
-    "tokenType": "Bearer",
-    "accessTokenExpiresIn": 3600000,
-    "refreshTokenExpiresIn": 1209600000
+    "email": "user@test.local",
+    "purpose": "SIGNUP",
+    "status": "PENDING",
+    "expiresAt": "2026-04-14T11:00:00"
   },
   "error": null
 }
 ```
 
-## 4. 로그아웃
-### `POST /api/auth/logout/{memberId}`
+## 6. 이메일 인증 확인
+### `POST /api/auth/email-verifications/confirm`
 
 #### 요청 시 필요한 데이터
 | 위치 | 필드 | 타입 | 필수 |
 | --- | --- | --- | --- |
-| Path | `memberId` | UUID | Y |
+| Body | `token` | String | Y |
 
-#### Request Example
-```text
-POST /api/auth/logout/11111111-1111-1111-1111-111111111111
+#### Request JSON
+```json
+{
+  "token": "random-verification-token"
+}
 ```
 
 #### Response JSON
 ```json
 {
   "success": true,
-  "data": null,
+  "data": {
+    "memberId": "11111111-1111-1111-1111-111111111111",
+    "email": "user@test.local",
+    "status": "ACTIVE"
+  },
   "error": null
 }
 ```
