@@ -8,8 +8,11 @@ import com.example.payment.application.usecase.OrderPaymentValidationUseCase;
 import com.example.payment.common.exception.InvalidCardPaymentRequestException;
 import com.example.payment.common.exception.PaymentGatewayException;
 import com.example.payment.domain.entity.CardTransaction;
+import com.example.payment.domain.entity.Escrow;
+import com.example.payment.domain.enumtype.EscrowReferenceType;
 import com.example.payment.domain.enumtype.CardTransactionStatus;
 import com.example.payment.domain.repository.CardTransactionRepository;
+import com.example.payment.domain.repository.EscrowRepository;
 import com.example.payment.domain.service.CardConfirmResultEventPublisher;
 import com.example.payment.domain.service.IdentifierGenerator;
 import com.example.payment.domain.service.OrderPaymentValidationData;
@@ -19,6 +22,7 @@ import com.example.payment.domain.service.TossPaymentGateway;
 import com.example.payment.infrastructure.messaging.kafka.contract.CardConfirmResultMessage;
 import com.example.payment.infrastructure.messaging.kafka.contract.CardConfirmResultStatus;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -32,6 +36,7 @@ public class CardPaymentConfirmService implements CardPaymentConfirmUseCase {
     private static final String CARD_METHOD = "카드";
 
     private final CardTransactionRepository cardTransactionRepository;
+    private final EscrowRepository escrowRepository;
     private final TossPaymentGateway tossPaymentGateway;
     private final OrderPaymentValidationUseCase orderPaymentValidationUseCase;
     private final CardConfirmResultEventPublisher cardConfirmResultEventPublisher;
@@ -40,6 +45,7 @@ public class CardPaymentConfirmService implements CardPaymentConfirmUseCase {
 
     public CardPaymentConfirmService(
             CardTransactionRepository cardTransactionRepository,
+            EscrowRepository escrowRepository,
             TossPaymentGateway tossPaymentGateway,
             OrderPaymentValidationUseCase orderPaymentValidationUseCase,
             CardConfirmResultEventPublisher cardConfirmResultEventPublisher,
@@ -47,6 +53,7 @@ public class CardPaymentConfirmService implements CardPaymentConfirmUseCase {
             TimeProvider timeProvider
     ) {
         this.cardTransactionRepository = cardTransactionRepository;
+        this.escrowRepository = escrowRepository;
         this.tossPaymentGateway = tossPaymentGateway;
         this.orderPaymentValidationUseCase = orderPaymentValidationUseCase;
         this.cardConfirmResultEventPublisher = cardConfirmResultEventPublisher;
@@ -84,6 +91,12 @@ public class CardPaymentConfirmService implements CardPaymentConfirmUseCase {
             }
 
             cardTransactionRepository.saveAll(cardTransactions);
+            List<Escrow> heldEscrows = createHeldEscrows(
+                    command,
+                    validationData.orderItems(),
+                    confirmation.approvedAt()
+            );
+            escrowRepository.saveAll(heldEscrows);
             publishCardConfirmSuccess(command.orderId());
 
             return new CardPaymentConfirmResult(
@@ -172,6 +185,26 @@ public class CardPaymentConfirmService implements CardPaymentConfirmUseCase {
                         command.orderId().toString(),
                         orderItem.lineAmount(),
                         requestedAt
+                ))
+                .toList();
+    }
+
+    private List<Escrow> createHeldEscrows(
+            CardPaymentConfirmCommand command,
+            List<OrderPaymentValidationItemData> orderItems,
+            LocalDateTime createdAt
+    ) {
+        return orderItems.stream()
+                .map(orderItem -> Escrow.createHeld(
+                        identifierGenerator.generateUuid(),
+                        command.orderId(),
+                        orderItem.orderItemId(),
+                        EscrowReferenceType.ORDER_ITEM,
+                        command.buyerId(),
+                        orderItem.sellerId(),
+                        orderItem.lineAmount(),
+                        null,
+                        createdAt
                 ))
                 .toList();
     }

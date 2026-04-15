@@ -89,6 +89,8 @@ aws:
     put-presign-expiration-seconds: 300
     get-presign-expiration-seconds: 600
 
+# --- Member Kafka Topic 설정 (로컬 기본값) ---
+member:
   email:
     provider: ${EMAIL_PROVIDER:logging}
     from-address: ${MAIL_FROM:no-reply@todaylunch.local}

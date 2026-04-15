@@ -8,8 +8,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.example.payment.application.dto.OrderPaymentCommand;
+import com.example.payment.application.dto.OrderPaymentLineCommand;
 import com.example.payment.application.dto.OrderPaymentResult;
-import com.example.payment.application.dto.OrderPaymentSellerCommand;
 import com.example.payment.common.exception.InvalidOrderPaymentRequestException;
 import com.example.payment.common.exception.WalletNotFoundException;
 import com.example.payment.domain.entity.Escrow;
@@ -81,7 +81,7 @@ class OrderPaymentServiceTest {
                     orderId,
                     buyerMemberId,
                     12_000L,
-                    List.of(new OrderPaymentSellerCommand(sellerMemberId, 12_000L)),
+                    List.of(new OrderPaymentLineCommand(UUID.randomUUID(), sellerMemberId, 12_000L)),
                     null
             );
             Wallet buyerWallet = Wallet.create(buyerWalletId, buyerMemberId, 20_000L, now, now);
@@ -116,8 +116,8 @@ class OrderPaymentServiceTest {
                     buyerMemberId,
                     12_000L,
                     List.of(
-                            new OrderPaymentSellerCommand(sellerMemberId, 7_000L),
-                            new OrderPaymentSellerCommand(secondSellerId, 5_000L)
+                            new OrderPaymentLineCommand(UUID.randomUUID(), sellerMemberId, 7_000L),
+                            new OrderPaymentLineCommand(UUID.randomUUID(), secondSellerId, 5_000L)
                     ),
                     null
             );
@@ -147,7 +147,7 @@ class OrderPaymentServiceTest {
                     orderId,
                     buyerMemberId,
                     12_000L,
-                    List.of(new OrderPaymentSellerCommand(sellerMemberId, 12_000L)),
+                    List.of(new OrderPaymentLineCommand(UUID.randomUUID(), sellerMemberId, 12_000L)),
                     null
             );
             Escrow existingEscrow = Escrow.createHeld(
@@ -180,7 +180,7 @@ class OrderPaymentServiceTest {
                     orderId,
                     buyerMemberId,
                     12_000L,
-                    List.of(new OrderPaymentSellerCommand(sellerMemberId, 12_000L)),
+                    List.of(new OrderPaymentLineCommand(UUID.randomUUID(), sellerMemberId, 12_000L)),
                     null
             );
 
@@ -198,13 +198,13 @@ class OrderPaymentServiceTest {
                     orderId,
                     buyerMemberId,
                     10_000L,
-                    List.of(new OrderPaymentSellerCommand(sellerMemberId, 12_000L)),
+                    List.of(new OrderPaymentLineCommand(UUID.randomUUID(), sellerMemberId, 12_000L)),
                     null
             );
 
             assertThatThrownBy(() -> orderPaymentService.payOrder(command))
                     .isInstanceOf(InvalidOrderPaymentRequestException.class)
-                    .hasMessageContaining("total must equal orderAmount");
+                    .hasMessageContaining("lineAmount total must equal orderAmount");
         }
 
         @Test
@@ -214,7 +214,7 @@ class OrderPaymentServiceTest {
                     orderId,
                     buyerMemberId,
                     12_000L,
-                    List.of(new OrderPaymentSellerCommand(sellerMemberId, 12_000L)),
+                    List.of(new OrderPaymentLineCommand(UUID.randomUUID(), sellerMemberId, 12_000L)),
                     null
             );
             Wallet buyerWallet = Wallet.create(buyerWalletId, buyerMemberId, 5_000L, now, now);

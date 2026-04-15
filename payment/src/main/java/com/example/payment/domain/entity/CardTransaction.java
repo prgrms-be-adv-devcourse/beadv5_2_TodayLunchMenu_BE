@@ -171,6 +171,44 @@ public class CardTransaction {
         );
     }
 
+    public static CardTransaction pendingCancel(
+            UUID cardTransactionId,
+            UUID transactionGroupId,
+            UUID relatedTransactionId,
+            UUID referenceId,
+            UUID buyerMemberId,
+            String pgOrderId,
+            String pgPaymentKey,
+            CardTransactionCancelScope cancelScope,
+            Long cancelAmount,
+            String reason,
+            LocalDateTime requestedAt
+    ) {
+        return new CardTransaction(
+                cardTransactionId,
+                transactionGroupId,
+                Objects.requireNonNull(relatedTransactionId),
+                referenceId,
+                CardTransactionReferenceType.ORDER_ITEM,
+                buyerMemberId,
+                pgOrderId,
+                pgPaymentKey,
+                CardTransactionType.CANCEL,
+                CardTransactionStatus.PENDING,
+                Objects.requireNonNull(cancelScope),
+                cancelAmount,
+                null,
+                null,
+                reason,
+                null,
+                null,
+                requestedAt,
+                null,
+                null,
+                requestedAt
+        );
+    }
+
     public void approve(String pgPaymentKey, Long approvedAmount, Long remainingAmount, LocalDateTime approvedAt) {
         validatePending();
         this.pgPaymentKey = Objects.requireNonNull(pgPaymentKey);
