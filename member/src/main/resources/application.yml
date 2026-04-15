@@ -1,8 +1,3 @@
-# ==============================
-# Member Service - 로컬 개발 환경 설정
-# Config Server 미연결 시 사용되는 기본값
-# ==============================
-
 spring:
   application:
     name: member-service
@@ -17,14 +12,11 @@ spring:
         max-attempts: 20
         max-interval: 5000
         multiplier: 1.5
-
-  # --- 데이터베이스 설정 (로컬 기본값) ---
   datasource:
     driver-class-name: org.postgresql.Driver
     url: jdbc:postgresql://localhost:5432/goods_mall?currentSchema=member
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
-
   jpa:
     hibernate:
       ddl-auto: validate
@@ -33,12 +25,24 @@ spring:
       hibernate:
         format_sql: true
         default_schema: member
-
-  # --- Redis 설정 (로컬 기본값) ---
   data:
     redis:
       host: localhost
       port: 6379
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:false}
+          starttls:
+            enable: ${SMTP_STARTTLS_ENABLE:false}
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
   # --- Kafka 설정 (로컬 기본값) ---
   kafka:
@@ -49,11 +53,9 @@ spring:
       properties:
         spring.json.add.type.headers: false
 
-# --- 서버 포트 ---
 server:
   port: 8083
 
-# --- Eureka 설정 (로컬 기본값) ---
 eureka:
   client:
     service-url:
@@ -62,25 +64,21 @@ eureka:
     prefer-ip-address: ${EUREKA_INSTANCE_PREFER_IP_ADDRESS:true}
     hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
 
-# --- Springdoc 설정 ---
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
 
-# --- API Gateway 설정 (로컬 기본값) ---
 apigateway:
   host: http://localhost:8080
 
-# --- JWT 설정 (로컬 기본값) ---
 jwt:
   secret: ${JWT_SECRET_KEY:local-dev-secret-key-for-testing-purposes-only-32chars}
   issuer: member-service
   access-expiration: 3600000
   refresh-expiration: 604800000
 
-# --- AWS S3 설정 (로컬 기본값) ---
 aws:
   s3:
     bucket: ${AWS_S3_BUCKET:todaylunch-local}
@@ -91,13 +89,22 @@ aws:
     put-presign-expiration-seconds: 300
     get-presign-expiration-seconds: 600
 
-# --- Member Kafka Topic 설정 (로컬 기본값) ---
-member:
+  email:
+    provider: ${EMAIL_PROVIDER:logging}
+    from-address: ${MAIL_FROM:no-reply@todaylunch.local}
+    from-name: ${MAIL_FROM_NAME:TodayLunch}
+  email-verification:
+    expiration: 24h
+    frontend-confirm-url: ${EMAIL_VERIFICATION_FRONTEND_URL:http://localhost:3000/email-verification}
+  seller-auto-promotion:
+    delay: ${SELLER_AUTO_PROMOTION_DELAY:10m}
+    poll-interval: ${SELLER_AUTO_PROMOTION_POLL_INTERVAL:30s}
+    lock-ttl: ${SELLER_AUTO_PROMOTION_LOCK_TTL:30s}
+    pending-ttl: ${SELLER_AUTO_PROMOTION_PENDING_TTL:24h}
   kafka:
     topic:
       signed-up: member-signed-up
 
-# --- 로깅 설정 (로컬: DEBUG) ---
 logging:
   level:
     com.example.member: DEBUG
