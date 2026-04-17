@@ -17,6 +17,7 @@ on:
       - "gateway/**"
       - "discovery/**"
       - "config/**"
+      - "db-migration/**"
 
 # 같은 PR에서 새 커밋이 올라오면 이전 실행 취소
 concurrency:
@@ -58,6 +59,10 @@ jobs:
           # 변경된 모듈을 담을 배열
           MODULES=()
 
+          if grep -q '^db-migration/' <<< "$CHANGED_FILES"; then
+            MODULES+=('{"module_name":"db-migration"}')
+          fi
+          
           if grep -q '^member/' <<< "$CHANGED_FILES"; then
             MODULES+=('{"module_name":"member"}')
           fi

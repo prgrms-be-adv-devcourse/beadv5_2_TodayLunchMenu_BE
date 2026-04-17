@@ -15,6 +15,7 @@ on:
       - "gateway/**"
       - "discovery/**"
       - "config/**"
+      - "db-migration/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -36,6 +37,7 @@ jobs:
       has_changes: ${{ steps.set-matrix.outputs.has_changes }}
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       services: ${{ steps.set-services.outputs.services }}
+      migration_changed: ${{ steps.set-flags.outputs.migration_changed }}
 
     steps:
       - name: checkout
@@ -53,6 +55,10 @@ jobs:
           echo "$CHANGED_FILES"
           
           MODULES=()
+
+          if grep -q '^db-migration/' <<< "$CHANGED_FILES"; then
+            MODULES+=('{"module_name":"db-migration"}')
+          fi
 
           if grep -q '^member/' <<< "$CHANGED_FILES"; then
             MODULES+=('{"module_name":"member"}')
@@ -109,8 +115,22 @@ jobs:
         id: set-services
         shell: bash
         run: |
-          SERVICES=$(echo '${{ steps.set-matrix.outputs.matrix }}' | jq -r '.include[].module_name' | tr '\n' ' ' | sed 's/[[:space:]]*$//')
+          # db-migration은 서비스처럼 계속 띄우는 대상이 아니라 1회 실행용이라 deploy 대상에서 제외
+          SERVICES=$(echo '${{ steps.set-matrix.outputs.matrix }}' | jq -r '.include[].module_name | select(. != "db-migration")' | tr '\n' ' ' | sed 's/[[:space:]]*$//')
           echo "services=$SERVICES" >> "$GITHUB_OUTPUT"
+
+      - name: set flags
+        id: set-flags
+        shell: bash
+        run: |
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+
+          # db-migration 변경 여부를 따로 저장해서 deploy 단계에서 migration 선실행 여부 결정
+          if grep -q '^db-migration/' <<< "$CHANGED_FILES"; then
+            echo "migration_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "migration_changed=false" >> "$GITHUB_OUTPUT"
+          fi
 
   build:
     name: build modules
@@ -175,10 +195,22 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -i key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
-            
+
+            # db-migration이 변경된 경우에만 migration 이미지 pull 후 선실행
+            if [ "${{ needs.detect-changes.outputs.migration_changed }}" = "true" ]; then
+              docker pull $IMAGE_PREFIX/db-migration:latest || true
+              docker compose run --rm db-migration
+            fi
+          
             for service in ${{ needs.detect-changes.outputs.services }}; do
               docker pull $IMAGE_PREFIX/\$service:latest || true
             done
-            
-            docker-compose up -d ${{ needs.detect-changes.outputs.services }}
+          
+            # 실제 앱 서비스만 재기동
+            if [ -n "${{ needs.detect-changes.outputs.services }}" ]; then
+              docker compose up -d ${{ needs.detect-changes.outputs.services }}
+            fi
+
+            # 사용하지 않는 dangling 이미지 정리
+            docker image prune -f
           EOF
