@@ -76,4 +76,3 @@ services:
 logging:
   level:
     com.example.order: DEBUG
-    org.hibernate.SQL: DEBUG

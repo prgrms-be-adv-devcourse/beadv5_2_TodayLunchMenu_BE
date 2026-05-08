@@ -20,10 +20,9 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
         default_schema: settlement
 
   # --- Kafka 설정 (로컬 기본값) ---
@@ -60,4 +59,3 @@ settlement:
 logging:
   level:
     com.example.settlement: DEBUG
-    org.hibernate.SQL: DEBUG

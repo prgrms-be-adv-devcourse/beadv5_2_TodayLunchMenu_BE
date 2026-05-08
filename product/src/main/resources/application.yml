@@ -19,7 +19,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         default_schema: product
@@ -51,7 +51,6 @@ cloud:
 logging:
   level:
     com.example.product: DEBUG
-    org.hibernate.SQL: DEBUG
 
 # --- Product 서비스 설정 ---
 product:
