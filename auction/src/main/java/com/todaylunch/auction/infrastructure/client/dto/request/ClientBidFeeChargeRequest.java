@@ -6,9 +6,6 @@ import java.util.UUID;
 public record ClientBidFeeChargeRequest(
         UUID bidId,
         UUID auctionId,
-        boolean isFirst,
-        UUID previousBidderId,
-        BigDecimal previousBidderPaidFee,
         UUID highestBidderId,
         BigDecimal highestBidderFee
 ) {}

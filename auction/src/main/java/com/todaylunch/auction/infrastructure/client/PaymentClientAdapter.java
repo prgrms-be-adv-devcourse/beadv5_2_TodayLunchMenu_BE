@@ -83,9 +83,6 @@ public class PaymentClientAdapter implements BidFeeChargePort {
         return new ClientBidFeeChargeRequest(
                 request.bidId(),
                 request.auctionId(),
-                request.isFirst(),
-                request.previousBidderId(),
-                request.previousBidderPaidFee(),
                 request.highestBidderId(),
                 request.highestBidderFee()
         );

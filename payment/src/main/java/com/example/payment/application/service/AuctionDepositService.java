@@ -3,7 +3,6 @@ package com.example.payment.application.service;
 import com.example.payment.application.dto.AuctionDepositCommand;
 import com.example.payment.application.dto.AuctionDepositResult;
 import com.example.payment.application.usecase.AuctionDepositUseCase;
-import com.example.payment.common.exception.AuctionDepositNotFoundException;
 import com.example.payment.common.exception.InsufficientWalletBalanceException;
 import com.example.payment.common.exception.InvalidAuctionBidFeeRequestException;
 import com.example.payment.common.exception.WalletNotFoundException;
@@ -17,7 +16,6 @@ import com.example.payment.domain.service.IdentifierGenerator;
 import com.example.payment.domain.service.TimeProvider;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Objects;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -55,9 +53,6 @@ public class AuctionDepositService implements AuctionDepositUseCase {
         LocalDateTime now = timeProvider.now();
         AuctionDeposit previousHeldAuctionDeposit = lockPreviousHeldAuctionDeposit(command.auctionId());
 
-        validatePreviousBidderContext(command, previousHeldAuctionDeposit);
-        validatePreviousHeldDeposit(command, previousHeldAuctionDeposit);
-
         Wallet highestBidderWallet = walletRepository.findByMemberIdForUpdate(command.highestBidderId())
                 .orElseThrow(WalletNotFoundException::new);
         validateSufficientBalance(highestBidderWallet, command.highestBidderFee());
@@ -87,8 +82,10 @@ public class AuctionDepositService implements AuctionDepositUseCase {
         auctionDepositRepository.save(auctionDeposit);
 
         BigDecimal refundedAmount = BigDecimal.ZERO;
+        UUID previousBidderId = null;
         if (previousHeldAuctionDeposit != null) {
-            refundedAmount = refundPreviousBidDeposit(command, previousHeldAuctionDeposit, now);
+            previousBidderId = previousHeldAuctionDeposit.getBidderId();
+            refundedAmount = refundPreviousBidDeposit(previousHeldAuctionDeposit, now);
         }
 
         log.info(
@@ -96,7 +93,7 @@ public class AuctionDepositService implements AuctionDepositUseCase {
                 command.auctionId(),
                 command.highestBidderId(),
                 command.highestBidderFee(),
-                command.previousBidderId(),
+                previousBidderId,
                 refundedAmount
         );
 
@@ -105,45 +102,35 @@ public class AuctionDepositService implements AuctionDepositUseCase {
                 command.auctionId(),
                 command.highestBidderId(),
                 command.highestBidderFee(),
-                command.previousBidderId(),
+                previousBidderId,
                 refundedAmount
         );
     }
 
     private BigDecimal refundPreviousBidDeposit(
-            AuctionDepositCommand command,
             AuctionDeposit previousAuctionDeposit,
             LocalDateTime occurredAt
     ) {
-        if (!Objects.equals(previousAuctionDeposit.getAuctionId(), command.auctionId())) {
-            throw new IllegalStateException("이전 최고 입찰 예치금이 현재 경매와 일치하지 않습니다.");
-        }
-        if (!Objects.equals(previousAuctionDeposit.getBidderId(), command.previousBidderId())) {
-            throw new IllegalStateException("이전 최고 입찰자 정보가 예치금 원장과 일치하지 않습니다.");
-        }
-        if (previousAuctionDeposit.getDepositAmount().compareTo(command.previousBidderPaidFee()) != 0) {
-            throw new IllegalStateException("이전 최고 입찰 예치금 금액이 예치금 원장과 일치하지 않습니다.");
-        }
-
-        Wallet previousBidderWallet = walletRepository.findByMemberIdForUpdate(command.previousBidderId())
+        Wallet previousBidderWallet = walletRepository.findByMemberIdForUpdate(previousAuctionDeposit.getBidderId())
                 .orElseThrow(WalletNotFoundException::new);
-        BigDecimal balanceAfterRefund = previousBidderWallet.increaseBalance(command.previousBidderPaidFee(), occurredAt);
+        BigDecimal refundAmount = previousAuctionDeposit.getDepositAmount();
+        BigDecimal balanceAfterRefund = previousBidderWallet.increaseBalance(refundAmount, occurredAt);
         walletRepository.save(previousBidderWallet);
 
         UUID refundWalletTransactionId = identifierGenerator.generateUuid();
         WalletTransaction refundWalletTransaction = WalletTransaction.auctionDepositRefund(
                 refundWalletTransactionId,
                 previousBidderWallet.getWalletId(),
-                command.previousBidderPaidFee(),
+                refundAmount,
                 balanceAfterRefund,
-                command.auctionId(),
+                previousAuctionDeposit.getAuctionId(),
                 occurredAt
         );
         walletTransactionRepository.save(refundWalletTransaction);
 
         previousAuctionDeposit.refund(refundWalletTransactionId, occurredAt);
         auctionDepositRepository.save(previousAuctionDeposit);
-        return command.previousBidderPaidFee();
+        return refundAmount;
     }
 
     private void validateCommand(AuctionDepositCommand command) {
@@ -159,29 +146,6 @@ public class AuctionDepositService implements AuctionDepositUseCase {
         if (command.highestBidderFee() == null || command.highestBidderFee().compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidAuctionBidFeeRequestException("최고 입찰자 예치금은 0보다 커야 합니다.");
         }
-
-        validateFirstBidContext(command);
-    }
-
-    private void validateFirstBidContext(AuctionDepositCommand command) {
-        boolean hasPreviousBidContext = command.previousBidderId() != null || command.previousBidderPaidFee() != null;
-
-        if (command.isFirst()) {
-            if (hasPreviousBidContext) {
-                throw new InvalidAuctionBidFeeRequestException("첫 입찰 요청에는 이전 최고 입찰자 정보가 포함될 수 없습니다.");
-            }
-            return;
-        }
-
-        if (!hasPreviousBidContext) {
-            throw new InvalidAuctionBidFeeRequestException("첫 입찰이 아닌 요청에는 이전 최고 입찰자 정보가 필요합니다.");
-        }
-        if (command.previousBidderId() == null) {
-            throw new InvalidAuctionBidFeeRequestException("이전 최고 입찰자 ID가 누락되었습니다.");
-        }
-        if (command.previousBidderPaidFee() == null || command.previousBidderPaidFee().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new InvalidAuctionBidFeeRequestException("이전 최고 입찰자 예치금은 0보다 커야 합니다.");
-        }
     }
 
     private void validateSufficientBalance(Wallet wallet, BigDecimal amount) {
@@ -192,35 +156,5 @@ public class AuctionDepositService implements AuctionDepositUseCase {
 
     private AuctionDeposit lockPreviousHeldAuctionDeposit(UUID auctionId) {
         return auctionDepositRepository.findHeldByAuctionIdForUpdate(auctionId).orElse(null);
-    }
-
-    private void validatePreviousBidderContext(AuctionDepositCommand command, AuctionDeposit previousHeldAuctionDeposit) {
-        boolean hasPreviousBidContext = command.previousBidderId() != null || command.previousBidderPaidFee() != null;
-        if (!hasPreviousBidContext) {
-            if (previousHeldAuctionDeposit != null) {
-                throw new InvalidAuctionBidFeeRequestException("이전 최고 입찰 예치금 정보가 존재하는데 요청값이 누락되었습니다.");
-            }
-            return;
-        }
-
-        if (previousHeldAuctionDeposit == null) {
-            throw new AuctionDepositNotFoundException("이전 최고 입찰의 예치금 원장을 찾을 수 없습니다.");
-        }
-    }
-
-    private void validatePreviousHeldDeposit(AuctionDepositCommand command, AuctionDeposit previousHeldAuctionDeposit) {
-        if (previousHeldAuctionDeposit == null) {
-            return;
-        }
-
-        if (Objects.equals(previousHeldAuctionDeposit.getBidderId(), command.highestBidderId())) {
-            throw new InvalidAuctionBidFeeRequestException("현재 최고 입찰자와 동일한 회원의 재입찰 요청은 처리할 수 없습니다.");
-        }
-        if (!Objects.equals(previousHeldAuctionDeposit.getBidderId(), command.previousBidderId())) {
-            throw new InvalidAuctionBidFeeRequestException("이전 최고 입찰자 정보가 현재 활성 예치금과 일치하지 않습니다.");
-        }
-        if (previousHeldAuctionDeposit.getDepositAmount().compareTo(command.previousBidderPaidFee()) != 0) {
-            throw new InvalidAuctionBidFeeRequestException("이전 최고 입찰자 예치금 금액이 현재 활성 예치금과 일치하지 않습니다.");
-        }
     }
 }

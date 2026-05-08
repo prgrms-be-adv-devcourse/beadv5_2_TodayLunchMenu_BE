@@ -192,9 +192,6 @@ public class AuctionBidFeeChargeRequestedEventConsumer {
         return new AuctionDepositCommand(
                 event.bidId(),
                 event.auctionId(),
-                event.isFirst(),
-                event.previousBidderId(),
-                event.previousBidderPaidFee(),
                 event.highestBidderId(),
                 event.highestBidderFee()
         );

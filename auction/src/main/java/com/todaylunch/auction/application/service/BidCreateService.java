@@ -60,11 +60,6 @@ public class BidCreateService implements BidCreateUseCase {
 
         BidFeeChargeRequest event = new BidFeeChargeRequest(saved.getBidId(),
                                                             auction.getAuctionId(),
-                                                            previousBid.isEmpty(),
-                                                            previousBid.map(Bid::getBidderId).orElse(null),
-                                                            previousBid.map(
-                                                                               b -> BidPolicy.calculateBidFee(b.getBidPrice()))
-                                                                       .orElse(null),
                                                             bidderId,
                                                             currentBidFee
         );
