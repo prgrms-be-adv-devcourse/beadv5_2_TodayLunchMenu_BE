@@ -28,10 +28,16 @@ public class OutboxProcessor {
             try {
                 event.changePublished();
                 outboxEventRepository.save(event);
-                kafkaTemplate.send(event.getTopic(), event.getPartitionKey(), event.getPayload()).get();
-                log.debug("Outbox Kafka 발행 성공: id={}, topic={}", event.getId(), event.getTopic());
+                kafkaTemplate.send(event.getTopic(), event.getPartitionKey(), event.getPayload())
+                             .whenComplete((result, ex) -> {
+                                 if (ex != null) {
+                                     log.error("Outbox Kafka 발행 실패: id={}, topic={}", event.getId(), event.getTopic(), ex);
+                                 } else {
+                                     log.debug("Outbox Kafka 발행 성공: id={}, topic={}", event.getId(), event.getTopic());
+                                 }
+                             });
             } catch (Exception e) {
-                log.error("Outbox Kafka 발행 실패: id={}, topic={}", event.getId(), event.getTopic(), e);
+                log.error("Outbox Kafka 발행 예외: id={}, topic={}", event.getId(), event.getTopic(), e);
                 event.revertToPending();
             }
         }

@@ -21,7 +21,7 @@
 | 항목 | 값 | 테스트 설계 영향 |
 |---|---|---|
 | HikariCP | min 2 / max 5 | **예상 병목** — 동시 입찰 5건 초과 시 대기 시작 |
-| 입찰 락 | PESSIMISTIC_WRITE | DB 락으로 직렬화, 처리량 제한 |
+| 입찰 락 | 낙관락 (@Version) | 충돌 시 BidConfirmService retry(MAX=3), 초과 시 자동 취소 |
 | 비동기 확정 | Outbox → Kafka → Payment | 입찰 201 후 PENDING 상태, Payment 없으면 확정 불가 |
 | 스케줄러 | 10초 주기 | 경매 상태 전이 자동화 (ONGOING → ENDED 등) |
 
@@ -40,8 +40,9 @@ POST /api/auctions/{id}/bids  { bidPrice }
 ```
 
 **락 경합 발생 원리**: 여러 VU가 동시에 같은 경매를 조회하면 같은 `currentHighestPrice`를 읽는다.
-같은 `bidPrice`로 동시에 POST → PESSIMISTIC_WRITE 락 경합 → 1건 성공(201), 나머지 409.
-이 409 비율이 `bid_conflict_rate` 지표.
+같은 `bidPrice`로 동시에 POST → 입찰 생성은 모두 PENDING 통과(201) → Payment Kafka 응답 후
+낙관락(@Version) 충돌 시 재시도, 최종 ACTIVE는 1건, 나머지 자동 취소.
+`pending_overrun` = 헛돈 Payment 호출 수 = `successful_bids - 1` 이 핵심 지표.
 
 ---
 
@@ -130,7 +131,7 @@ k6 run ~/k6/scenarios/baseline.js --out json=results/baseline.json
 
 ## 시나리오 A: 동시 입찰 경쟁 테스트
 
-**목적**: PESSIMISTIC_WRITE 락 경합 처리량 한계 측정, HikariCP pool 소진 시점 확인
+**목적**: 낙관락 환경에서 pending_overrun(헛 Payment 호출) 규모 측정, HikariCP pool 소진 시점 확인
 
 ### 설정
 
