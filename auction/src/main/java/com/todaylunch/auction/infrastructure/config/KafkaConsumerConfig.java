@@ -37,4 +37,16 @@ public class KafkaConsumerConfig {
         factory.setConsumerFactory(consumerFactory);
         return factory;
     }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, String> bidFeeChargeResultKafkaListenerContainerFactory(
+            ConsumerFactory<String, String> consumerFactory,
+            @Value("${kafka.consumer.bid-fee-charge-result.concurrency:8}") int concurrency
+    ) {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactory);
+        factory.setConcurrency(concurrency);
+        return factory;
+    }
 }

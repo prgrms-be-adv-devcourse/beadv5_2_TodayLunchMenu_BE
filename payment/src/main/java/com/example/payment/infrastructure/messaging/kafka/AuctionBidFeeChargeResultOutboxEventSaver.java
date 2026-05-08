@@ -48,7 +48,7 @@ public class AuctionBidFeeChargeResultOutboxEventSaver {
                 resolveTraceId(event.eventId(), event.bidId(), "payment-bid-fee-charge-succeeded"),
                 event
         );
-        save(KafkaTopics.AUCTION_BID_FEE_CHARGE_SUCCEEDED, eventType, String.valueOf(event.auctionId()), envelope);
+        save(KafkaTopics.AUCTION_BID_FEE_CHARGE_SUCCEEDED, eventType, String.valueOf(event.bidId()), envelope);
     }
 
     @Transactional
@@ -63,7 +63,7 @@ public class AuctionBidFeeChargeResultOutboxEventSaver {
                 resolveTraceId(event.eventId(), event.bidId(), "payment-bid-fee-charge-failed"),
                 event
         );
-        save(KafkaTopics.AUCTION_BID_FEE_CHARGE_FAILED, eventType, String.valueOf(event.auctionId()), envelope);
+        save(KafkaTopics.AUCTION_BID_FEE_CHARGE_FAILED, eventType, String.valueOf(event.bidId()), envelope);
     }
 
     private void save(String topic, String eventType, String aggregateId, EventEnvelope<?> envelope) {

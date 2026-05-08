@@ -32,7 +32,7 @@ public class BidFeeChargeCompletedConsumer {
     private final BidUpdateService bidUpdateService;
     private final ObjectMapper objectMapper;
 
-    @KafkaListener(topics = KafkaTopics.BID_FEE_CHARGE_COMPLETED)
+    @KafkaListener(topics = KafkaTopics.BID_FEE_CHARGE_COMPLETED, containerFactory = "bidFeeChargeResultKafkaListenerContainerFactory")
     public void handle(String payload) throws Exception {
         EventEnvelope<BidFeeChargeCompletedMessage> envelope
                 = objectMapper.readValue(payload, new TypeReference<>() {});

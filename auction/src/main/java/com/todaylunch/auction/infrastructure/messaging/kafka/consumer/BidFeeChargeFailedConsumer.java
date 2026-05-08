@@ -33,7 +33,7 @@ public class BidFeeChargeFailedConsumer {
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
 
-    @KafkaListener(topics = KafkaTopics.BID_FEE_CHARGE_FAILED)
+    @KafkaListener(topics = KafkaTopics.BID_FEE_CHARGE_FAILED, containerFactory = "bidFeeChargeResultKafkaListenerContainerFactory")
     @Transactional
     public void handle(String payload) throws Exception {
         EventEnvelope<BidFeeChargeFailedMessage> envelope
