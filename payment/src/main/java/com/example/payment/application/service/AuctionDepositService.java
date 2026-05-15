@@ -73,6 +73,7 @@ public class AuctionDepositService implements AuctionDepositUseCase {
 
         AuctionDeposit auctionDeposit = AuctionDeposit.hold(
                 identifierGenerator.generateUuid(),
+                command.bidId(),
                 command.auctionId(),
                 command.highestBidderId(),
                 command.highestBidderFee(),

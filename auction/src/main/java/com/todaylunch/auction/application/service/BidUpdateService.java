@@ -6,6 +6,7 @@ import com.todaylunch.auction.domain.entity.Auction;
 import com.todaylunch.auction.domain.entity.Bid;
 import com.todaylunch.auction.domain.repository.AuctionRepository;
 import com.todaylunch.auction.domain.repository.BidRepository;
+import com.todaylunch.auction.infrastructure.messaging.kafka.publisher.KafkaBidFeeRefundRequestedPublisher;
 import com.todaylunch.auction.infrastructure.messaging.kafka.publisher.KafkaBidOutbidEventPublisher;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -25,6 +26,7 @@ public class BidUpdateService {
     private final AuctionRepository auctionRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final KafkaBidOutbidEventPublisher bidOutbidEventPublisher;
+    private final KafkaBidFeeRefundRequestedPublisher bidFeeRefundRequestedPublisher;
 
 
     @Transactional
@@ -37,6 +39,7 @@ public class BidUpdateService {
         if (!auction.isHigherThanCurrentBid(bid.getBidPrice())) {
             bid.cancel();
             log.info("낙관락 재시도 중 더 높은 입찰 감지 — 입찰 취소: bidId={}", bidId);
+            bidFeeRefundRequestedPublisher.publish(bidId, auctionId, bid.getBidderId());
             return;
         }
 
@@ -65,5 +68,6 @@ public class BidUpdateService {
                 .orElseThrow(BidNotFoundException::new);
         bid.cancel();
         log.warn("낙관락 재시도 초과 — 입찰 취소: bidId={}", bidId);
+        bidFeeRefundRequestedPublisher.publish(bidId, bid.getAuction().getAuctionId(), bid.getBidderId());
     }
 }

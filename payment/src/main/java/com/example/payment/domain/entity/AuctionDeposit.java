@@ -25,6 +25,9 @@ public class AuctionDeposit {
     @Column(name = "auction_deposit_id", nullable = false, updatable = false)
     private UUID auctionDepositId;
 
+    @Column(name = "bid_id", nullable = false, updatable = false)
+    private UUID bidId;
+
     @Column(name = "auction_id", nullable = false, updatable = false)
     private UUID auctionId;
 
@@ -52,6 +55,7 @@ public class AuctionDeposit {
 
     private AuctionDeposit(
             UUID auctionDepositId,
+            UUID bidId,
             UUID auctionId,
             UUID bidderId,
             BigDecimal depositAmount,
@@ -62,6 +66,7 @@ public class AuctionDeposit {
             LocalDateTime updatedAt
     ) {
         this.auctionDepositId = Objects.requireNonNull(auctionDepositId);
+        this.bidId = Objects.requireNonNull(bidId);
         this.auctionId = Objects.requireNonNull(auctionId);
         this.bidderId = Objects.requireNonNull(bidderId);
         this.depositAmount = validatePositiveAmount(depositAmount);
@@ -74,6 +79,7 @@ public class AuctionDeposit {
 
     public static AuctionDeposit hold(
             UUID auctionDepositId,
+            UUID bidId,
             UUID auctionId,
             UUID bidderId,
             BigDecimal depositAmount,
@@ -83,6 +89,7 @@ public class AuctionDeposit {
         LocalDateTime now = Objects.requireNonNull(createdAt);
         return new AuctionDeposit(
                 auctionDepositId,
+                bidId,
                 auctionId,
                 bidderId,
                 depositAmount,

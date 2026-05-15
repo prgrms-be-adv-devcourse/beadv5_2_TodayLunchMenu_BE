@@ -58,6 +58,12 @@ public class BidFeeChargeCompletedConsumer {
                 return;
             } catch (ObjectOptimisticLockingFailureException e) {
                 log.warn("낙관락 충돌 — 재시도 {}/{}: bidId={}", attempt + 1, MAX_RETRY, bidId);
+                try {
+                    Thread.sleep(50L * (attempt + 1));
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
         }
         bidUpdateService.cancel(bidId);

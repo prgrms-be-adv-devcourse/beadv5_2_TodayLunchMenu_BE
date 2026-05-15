@@ -19,7 +19,7 @@
  *   CANCELED 다수       → 여전히 동일가격 충돌 비중이 높음 (variance 증가 검토)
  *
  * 실행:
- *   k6 run auction/k6/scenarios/concurrent-bid.js -e VUS=30
+ *   k6 run auction/k6/scenarios/concurrent-bid.js -e RATE=10
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -32,14 +32,17 @@ import { recordBidResult } from '../helpers/metrics.js';
 
 const bidDuration = new Trend('bid_duration', true);
 
-const TARGET_VUS = parseInt(__ENV.VUS || '30');
+const TARGET_RATE = parseInt(__ENV.RATE || '10');
 
 export const options = {
   scenarios: {
     concurrent_bid: {
-      executor: 'constant-vus',
-      vus: TARGET_VUS,
+      executor: 'constant-arrival-rate',
+      rate: TARGET_RATE,
+      timeUnit: '1s',
       duration: '2m',
+      preAllocatedVUs: 50,
+      maxVUs: 150,
     },
   },
   thresholds: {
@@ -58,9 +61,9 @@ export default function () {
     return;
   }
 
-  // VU마다 다른 입찰가: minBidPrice + 0~4 × bidUnit
-  // → 동시 입찰에서 가격 다양성 확보, 더 높은 입찰이 ACTIVE 쟁취
-  const extra = Math.floor(Math.random() * 5);
+  // VU마다 다른 입찰가: minBidPrice + 0~9 × bidUnit
+  // → 10단계 분산으로 동일가격 충돌 감소, 더 높은 입찰이 ACTIVE 쟁취
+  const extra = Math.floor(Math.random() * 10);
   const bidPrice = state.minBidPrice + (state.bidUnit * extra);
 
   const res = http.post(
@@ -81,7 +84,7 @@ export default function () {
 }
 
 export function teardown() {
-  const waitSeconds = parseInt(__ENV.TEARDOWN_WAIT || '20');
+  const waitSeconds = parseInt(__ENV.TEARDOWN_WAIT || '120');
   console.log(`[teardown] ${waitSeconds}초 대기 — Outbox + Kafka 처리 완료 대기 중...`);
   sleep(waitSeconds);
 

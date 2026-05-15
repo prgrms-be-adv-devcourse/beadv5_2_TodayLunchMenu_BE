@@ -14,4 +14,7 @@ public interface AuctionDepositJpaRepository extends JpaRepository<AuctionDeposi
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<AuctionDeposit> findWithLockByAuctionIdAndStatus(UUID auctionId, AuctionDepositStatus status);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<AuctionDeposit> findWithLockByBidId(UUID bidId);
 }

@@ -128,6 +128,31 @@ public class KafkaConsumerConfig {
     }
 
     /**
+     * 경매 입찰 예치금 환불 요청 이벤트용 ConsumerFactory
+     */
+    @Bean
+    public ConsumerFactory<String, String> auctionBidFeeRefundRequestedConsumerFactory(
+            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers
+    ) {
+        return createConsumerFactory(bootstrapServers, KafkaConsumerGroups.PAYMENT_SERVICE, String.class);
+    }
+
+    /**
+     * 경매 입찰 예치금 환불 요청 이벤트를 처리할 ListenerContainerFactory
+     */
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, String>
+        auctionBidFeeRefundRequestedKafkaListenerContainerFactory(
+            ConsumerFactory<String, String> auctionBidFeeRefundRequestedConsumerFactory
+    ) {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(auctionBidFeeRefundRequestedConsumerFactory);
+        factory.setCommonErrorHandler(createAuctionBidFeeChargeRequestedErrorHandler());
+        return factory;
+    }
+
+    /**
      * 판매자 정산 지급 요청 이벤트용 ConsumerFactory
      * <p>
      * 이 이벤트는 다른 이벤트보다 실패 처리 정책이 중요하므로
