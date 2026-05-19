@@ -14,7 +14,7 @@ spec:
         app: cart
     spec:
       nodeSelector:
-        role: infra
+        role: app
       imagePullSecrets:
         - name: ghcr-secret
       containers:

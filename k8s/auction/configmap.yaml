@@ -7,5 +7,5 @@ data:
   AWS_S3_BUCKET: "todaylunchmenu"
   ELASTICSEARCH_URI: "http://elasticsearch:9200"
   SERVICES_PAYMENT_URL: "http://payment:8082"
-  WEBSOCKET_ALLOWED_ORIGINS: "http://localhost:5173,https://www.goods-mall.shop,https://goodsmall.vercel.app,https://3.36.235.7.nip.io"
+  WEBSOCKET_ALLOWED_ORIGINS: "http://localhost:5173,https://www.goods-mall.shop,https://goodsmall.vercel.app,https://3.34.102.179.nip.io"
   HIKARI_MAX_POOL_SIZE: "30"

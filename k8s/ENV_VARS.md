@@ -138,7 +138,7 @@
 | `MAIL_FROM` | `no-reply@todaylunch.local` | `no-reply@todaylunch.local` |
 | `MAIL_FROM_NAME` | `TodayLunch` | `TodayLunch` |
 | `EMAIL_VERIFICATION_FRONTEND_URL` | `https://goodsmall.vercel.app/email-verification` | (기본값 없음 — 반드시 설정) |
-| `KAKAO_REDIRECT_URI` | `http://3.36.235.7/api/auth/oauth/kakao/callback` | `http://localhost:8083/api/auth/oauth/kakao/callback` |
+| `KAKAO_REDIRECT_URI` | `http://3.34.102.179/api/auth/oauth/kakao/callback` | `http://localhost:8083/api/auth/oauth/kakao/callback` |
 | `KAKAO_CLIENT_ID` | `40bcc2744d37da5ed008a7a22fe45b7a` | (빈 값) |
 
 > **변경 이력**: `member.email.from-name`이 하드코딩(`TodayLunch`)에서 `${MAIL_FROM_NAME:TodayLunch}` 환경변수 참조로 변경됨.

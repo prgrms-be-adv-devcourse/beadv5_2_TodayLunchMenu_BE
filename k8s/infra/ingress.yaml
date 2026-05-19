@@ -31,10 +31,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - 3.36.235.7.nip.io
+        - 3.34.102.179.nip.io
       secretName: nip-io-tls
   rules:
-    - host: 3.36.235.7.nip.io
+    - host: 3.34.102.179.nip.io
       http:
         paths:
           - path: /

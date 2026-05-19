@@ -27,8 +27,8 @@ data:
 
   PASSWORD_RESET_FRONTEND_URL: "https://www.goods-mall.shop/password-reset"
 
-  KAKAO_REDIRECT_URI: "http://3.36.235.7/api/auth/oauth/kakao/callback"
-  KAKAO_CLIENT_ID: "40bcc2744d37da5ed008a7a22fe45b7a"
+  KAKAO_REDIRECT_URI: "http://3.34.102.179/api/auth/oauth/kakao/callback"
+  KAKAO_CLIENT_ID: "eddc5ac8930996c04892b74da6d1e509"
   KAKAO_FRONTEND_CALLBACK_URL: "https://goodsmall.vercel.app/auth/kakao/callback"
 
   AWS_S3_BUCKET: "todaylunchmenu"
