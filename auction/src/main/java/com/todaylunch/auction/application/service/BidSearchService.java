@@ -2,10 +2,12 @@ package com.todaylunch.auction.application.service;
 
 import com.todaylunch.auction.application.usecase.BidSearchUseCase;
 import com.todaylunch.auction.domain.entity.Bid;
+import com.todaylunch.auction.domain.enumtype.BidStatus;
 import com.todaylunch.auction.domain.repository.BidRepository;
 import com.todaylunch.auction.presentation.dto.response.BidResponse;
 import com.todaylunch.auction.presentation.dto.response.PagedResponse;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -48,5 +50,10 @@ public class BidSearchService implements BidSearchUseCase {
                 result.getTotalPages(),
                 result.hasNext()
         );
+    }
+
+    @Override
+    public Map<BidStatus, Long> statsBy(UUID auctionId) {
+        return bidRepository.countByStatusForAuction(auctionId);
     }
 }

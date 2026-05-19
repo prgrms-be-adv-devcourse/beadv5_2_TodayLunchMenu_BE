@@ -73,3 +73,7 @@ node_modules/
 
 package.json
 package-lock.json
+
+# k6 test reports
+auction/k6/report/
+k6-report.html

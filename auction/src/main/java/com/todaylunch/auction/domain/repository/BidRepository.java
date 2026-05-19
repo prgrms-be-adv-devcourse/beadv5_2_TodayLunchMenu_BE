@@ -1,6 +1,8 @@
 package com.todaylunch.auction.domain.repository;
 
 import com.todaylunch.auction.domain.entity.Bid;
+import com.todaylunch.auction.domain.enumtype.BidStatus;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -17,4 +19,6 @@ public interface BidRepository {
     Optional<Bid> findCurrentValidByAuctionId(UUID auctionId);
 
     Page<Bid> findAllByAuctionId(UUID auctionId, Pageable pageable);
+
+    Map<BidStatus, Long> countByStatusForAuction(UUID auctionId);
 }
