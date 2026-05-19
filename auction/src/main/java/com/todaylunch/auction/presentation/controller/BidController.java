@@ -2,6 +2,7 @@ package com.todaylunch.auction.presentation.controller;
 
 import com.todaylunch.auction.application.usecase.BidCreateUseCase;
 import com.todaylunch.auction.application.usecase.BidSearchUseCase;
+import com.todaylunch.auction.domain.enumtype.BidStatus;
 import com.todaylunch.auction.presentation.dto.request.BidPlaceRequest;
 import com.todaylunch.auction.presentation.dto.response.ApiResponse;
 import com.todaylunch.auction.presentation.dto.response.BidResponse;
@@ -9,6 +10,7 @@ import com.todaylunch.auction.presentation.dto.response.PagedResponse;
 import com.todaylunch.common.security.auth.annotation.CurrentMember;
 import com.todaylunch.common.security.auth.dto.AuthenticatedMember;
 import jakarta.validation.Valid;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -48,5 +50,10 @@ public class BidController {
     ) {
         PagedResponse<BidResponse> response = bidSearchUseCase.searchByAuction(auctionId, page, size);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<ApiResponse<Map<BidStatus, Long>>> stats(@PathVariable UUID auctionId) {
+        return ResponseEntity.ok(ApiResponse.success(bidSearchUseCase.statsBy(auctionId)));
     }
 }

@@ -46,4 +46,12 @@ public interface BidJpaRepository extends JpaRepository<Bid, UUID> {
             where b.auction.auctionId = :auctionId
             """)
     Page<Bid> findAllByAuctionId(@Param("auctionId") UUID auctionId, Pageable pageable);
+
+    @Query("""
+            select b.status, count(b)
+            from Bid b
+            where b.auction.auctionId = :auctionId
+            group by b.status
+            """)
+    List<Object[]> countGroupByStatusForAuction(@Param("auctionId") UUID auctionId);
 }
