@@ -22,7 +22,6 @@ import { fetchCurrentBidPrice } from '../helpers/bid.js';
 const error5xxRate = new Rate('stress_5xx_rate');
 const bidTrend = new Trend('stress_bid_duration', true);
 
-// 5xx 코드별 분리 — 포화 원인 진단용 (SCENARIOS.md 5xx 분류 표와 매칭)
 //   503: HikariCP 커넥션 풀 타임아웃 → pool size 증설 또는 락 시간 단축 검토
 //   504: 락 대기 / 게이트웨이 타임아웃 → 트랜잭션 범위 또는 동시성 결함
 //   500: 비즈니스 예외 (NPE, IllegalState 등) → 부하와 무관한 버그, 즉시 수정 대상

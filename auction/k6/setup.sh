@@ -1,7 +1,12 @@
 #!/bin/bash
 set -e
 
-PSQL="kubectl exec -i postgres-c99f56b7d-7bdts -n goods-mall -- psql -U goods -d goods_mall"
+POSTGRES_POD=$(kubectl get pods -n goods-mall -l app=postgres -o jsonpath='{.items[0].metadata.name}')
+if [ -z "$POSTGRES_POD" ]; then
+  echo "ERROR: postgres pod not found in namespace goods-mall (label app=postgres)" >&2
+  exit 1
+fi
+PSQL="kubectl exec -i $POSTGRES_POD -n goods-mall -- psql -U goods -d goods_mall"
 K6_DIR=~/k6
 
 kafka_reset() {
