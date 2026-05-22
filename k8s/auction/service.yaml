@@ -4,9 +4,10 @@ metadata:
   name: auction
   namespace: goods-mall
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: auction
   ports:
     - port: 8090
       targetPort: 8090
+      nodePort: 30245
