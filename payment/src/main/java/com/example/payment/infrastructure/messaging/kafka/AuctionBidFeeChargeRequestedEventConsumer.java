@@ -18,6 +18,7 @@ import java.time.ZoneId;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
@@ -34,6 +35,7 @@ public class AuctionBidFeeChargeRequestedEventConsumer {
     private static final String BID_FEE_CHARGE_REQUESTED_EVENT_TYPE = "BID_FEE_CHARGE_REQUESTED";
     private static final String BID_FEE_CHARGE_SUCCEEDED_EVENT_TYPE = "BID_FEE_CHARGE_SUCCEEDED";
     private static final String BID_FEE_CHARGE_FAILED_EVENT_TYPE = "BID_FEE_CHARGE_FAILED";
+    private static final int MAX_HELD_CONFLICT_RETRY = 3;
     private static final TypeReference<EventEnvelope<BidFeeChargeRequestMessage>> BID_FEE_CHARGE_REQUESTED_ENVELOPE_TYPE =
             new TypeReference<>() {
             };
@@ -82,7 +84,7 @@ public class AuctionBidFeeChargeRequestedEventConsumer {
             log.info("경매 입찰 보증금 처리 요청 payload 검증 성공: bidId={}, auctionId={}, highestBidderId={}, highestBidderFee={}",
                     event.bidId(), event.auctionId(), event.highestBidderId(), event.highestBidderFee());
 
-            AuctionDepositResult result = auctionDepositUseCase.processAuctionDeposit(toCommand(event));
+            AuctionDepositResult result = processWithHeldConflictRetry(toCommand(event));
             log.info("경매 입찰 보증금 처리 성공: bidId={}, auctionId={}", result.bidId(), result.auctionId());
             publishSuccess(result);
         } catch (AuctionBidFeeEventValidationException e) {
@@ -186,6 +188,26 @@ public class AuctionBidFeeChargeRequestedEventConsumer {
         if (event.highestBidderFee() == null || event.highestBidderFee().compareTo(BigDecimal.ZERO) <= 0) {
             throw new AuctionBidFeeEventValidationException(ErrorCode.AUCTION_BID_FEE_HIGHEST_FEE_INVALID);
         }
+    }
+
+    private AuctionDepositResult processWithHeldConflictRetry(AuctionDepositCommand command) {
+        DataIntegrityViolationException lastError = null;
+        for (int attempt = 1; attempt <= MAX_HELD_CONFLICT_RETRY; attempt++) {
+            try {
+                return auctionDepositUseCase.processAuctionDeposit(command);
+            } catch (DataIntegrityViolationException e) {
+                lastError = e;
+                log.warn("auction_deposit HELD UNIQUE 충돌 — 재시도 {}/{}: auctionId={}, bidId={}",
+                        attempt, MAX_HELD_CONFLICT_RETRY, command.auctionId(), command.bidId());
+                try {
+                    Thread.sleep(50L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw lastError;
+                }
+            }
+        }
+        throw lastError;
     }
 
     private AuctionDepositCommand toCommand(BidFeeChargeRequestMessage event) {
