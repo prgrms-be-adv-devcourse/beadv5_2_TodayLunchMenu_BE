@@ -84,7 +84,7 @@ export default function () {
 }
 
 export function teardown() {
-  const waitSeconds = parseInt(__ENV.TEARDOWN_WAIT || '120');
+  const waitSeconds = parseInt(__ENV.TEARDOWN_WAIT || '10');
   console.log(`[teardown] ${waitSeconds}초 대기 — Outbox + Kafka 처리 완료 대기 중...`);
   sleep(waitSeconds);
 
