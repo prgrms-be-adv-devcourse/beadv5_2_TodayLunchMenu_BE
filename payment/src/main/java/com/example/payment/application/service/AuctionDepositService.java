@@ -53,6 +53,16 @@ public class AuctionDepositService implements AuctionDepositUseCase {
         LocalDateTime now = timeProvider.now();
         AuctionDeposit previousHeldAuctionDeposit = lockPreviousHeldAuctionDeposit(command.auctionId());
 
+        BigDecimal refundedAmount = BigDecimal.ZERO;
+        UUID previousBidderId = null;
+        if (previousHeldAuctionDeposit != null) {
+            previousBidderId = previousHeldAuctionDeposit.getBidderId();
+            refundedAmount = refundPreviousBidDeposit(previousHeldAuctionDeposit, now);
+            // 새 HELD INSERT 전에 이전 HELD → REFUNDED UPDATE를 DB에 강제 반영.
+            // 동일 flush 안에서는 INSERT가 UPDATE보다 먼저 나가 partial unique(uk_auction_deposit_auction_id_held) 충돌이 남.
+            auctionDepositRepository.flush();
+        }
+
         Wallet highestBidderWallet = walletRepository.findByMemberIdForUpdate(command.highestBidderId())
                 .orElseThrow(WalletNotFoundException::new);
         validateSufficientBalance(highestBidderWallet, command.highestBidderFee());
@@ -81,13 +91,6 @@ public class AuctionDepositService implements AuctionDepositUseCase {
                 now
         );
         auctionDepositRepository.save(auctionDeposit);
-
-        BigDecimal refundedAmount = BigDecimal.ZERO;
-        UUID previousBidderId = null;
-        if (previousHeldAuctionDeposit != null) {
-            previousBidderId = previousHeldAuctionDeposit.getBidderId();
-            refundedAmount = refundPreviousBidDeposit(previousHeldAuctionDeposit, now);
-        }
 
         log.info(
                 "경매 입찰 수수료 처리 완료 auctionId={} highestBidderId={} heldAmount={} previousBidderId={} refundedAmount={}",

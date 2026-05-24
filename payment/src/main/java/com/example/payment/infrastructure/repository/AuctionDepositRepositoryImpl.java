@@ -22,6 +22,11 @@ public class AuctionDepositRepositoryImpl implements AuctionDepositRepository {
     }
 
     @Override
+    public void flush() {
+        auctionDepositJpaRepository.flush();
+    }
+
+    @Override
     public Optional<AuctionDeposit> findByAuctionDepositId(UUID auctionDepositId) {
         return auctionDepositJpaRepository.findById(auctionDepositId);
     }

@@ -8,6 +8,8 @@ public interface AuctionDepositRepository {
 
     AuctionDeposit save(AuctionDeposit auctionDeposit);
 
+    void flush();
+
     Optional<AuctionDeposit> findByAuctionDepositId(UUID auctionDepositId);
 
     Optional<AuctionDeposit> findHeldByAuctionId(UUID auctionId);

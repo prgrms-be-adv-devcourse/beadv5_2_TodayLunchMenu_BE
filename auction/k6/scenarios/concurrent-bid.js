@@ -236,7 +236,7 @@ WHERE b1.status = 'ACTIVE' AND b2.status = 'OUTBID'
 </html>`;
 
   return {
-    'stdout': `\n=== 동시 입찰 테스트 완료 ===\n접수(201): ${success} (${successPct}%)  거부(4xx): ${rejected}  오류(5xx): ${serverErr}  p99: ${p99.toFixed(0)}ms\n결과 리포트: auction/k6/report/concurrent-bid-report.html\n`,
-    'auction/k6/report/concurrent-bid-report.html': html,
+    'stdout': `\n=== 동시 입찰 테스트 완료 ===\n접수(201): ${success} (${successPct}%)  거부(4xx): ${rejected}  오류(5xx): ${serverErr}  p99: ${p99.toFixed(0)}ms\n결과 리포트: report/concurrent-bid-report.html\n`,
+    'report/concurrent-bid-report.html': html,
   };
 }
