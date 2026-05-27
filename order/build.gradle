@@ -52,7 +52,7 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
     // Kafka
-    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'org.springframework.boot:spring-boot-starter-kafka'
     // Redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 }

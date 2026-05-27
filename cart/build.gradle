@@ -38,7 +38,7 @@ dependencies {
     // SpringDoc OpenAPI
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
     // Kafka
-    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'org.springframework.boot:spring-boot-starter-kafka'
 }
 
 dependencyManagement {
