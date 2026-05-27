@@ -19,7 +19,7 @@
  *   CANCELED 다수       → 여전히 동일가격 충돌 비중이 높음 (variance 증가 검토)
  *
  * 실행:
- *   k6 run auction/k6/scenarios/concurrent-bid.js -e RATE=10
+ *   k6 run auction/k6/scenarios/concurrent-bid.js -e VUS=10
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -32,17 +32,14 @@ import { recordBidResult } from '../helpers/metrics.js';
 
 const bidDuration = new Trend('bid_duration', true);
 
-const TARGET_RATE = parseInt(__ENV.RATE || '10');
+const TARGET_VUS = parseInt(__ENV.VUS || '10');
 
 export const options = {
   scenarios: {
     concurrent_bid: {
-      executor: 'constant-arrival-rate',
-      rate: TARGET_RATE,
-      timeUnit: '1s',
+      executor: 'constant-vus',
+      vus: TARGET_VUS,
       duration: '2m',
-      preAllocatedVUs: 50,
-      maxVUs: 150,
     },
   },
   thresholds: {
@@ -50,6 +47,7 @@ export const options = {
     bid_success: ['count>0'],
     bid_duration: ['p(99)<5000', 'p(99.9)<10000'],
   },
+  teardownTimeout: '180s',
 };
 
 export default function () {
@@ -159,7 +157,7 @@ export function handleSummary(data) {
 </head>
 <body>
   <h1>동시 입찰 부하 테스트 결과</h1>
-  <div class="sub">RATE=${TARGET_RATE} · duration=2m · auction=${CONCURRENT_BID_AUCTION_ID} &nbsp;|&nbsp; 임계값: <span class="badge ${allPassed ? 'pass' : 'fail'}">${allPassed ? 'PASS' : 'FAIL'}</span></div>
+  <div class="sub">VUS=${TARGET_VUS} · duration=2m (지속 동시 입찰) · auction=${CONCURRENT_BID_AUCTION_ID} &nbsp;|&nbsp; 임계값: <span class="badge ${allPassed ? 'pass' : 'fail'}">${allPassed ? 'PASS' : 'FAIL'}</span></div>
 
   <div class="grid">
     <div class="card">
