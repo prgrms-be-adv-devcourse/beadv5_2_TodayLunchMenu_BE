@@ -39,4 +39,44 @@ public class KafkaTopicConfig {
                 .replicas(1)
                 .build();
     }
+
+    @Bean
+    public NewTopic auctionBidOutbidTopic(
+            @Value("${kafka.topic.auction-bid-outbid.partitions:8}") int partitions
+    ) {
+        return TopicBuilder.name(KafkaTopics.BID_OUTBID)
+                .partitions(partitions)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic auctionBidFeeRefundRequestedTopic(
+            @Value("${kafka.topic.auction-bid-fee-refund-requested.partitions:8}") int partitions
+    ) {
+        return TopicBuilder.name(KafkaTopics.BID_FEE_REFUND_REQUESTED)
+                .partitions(partitions)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic auctionWonTopic(
+            @Value("${kafka.topic.auction-won.partitions:8}") int partitions
+    ) {
+        return TopicBuilder.name(KafkaTopics.AUCTION_WON)
+                .partitions(partitions)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic auctionClosedTopic(
+            @Value("${kafka.topic.auction-closed.partitions:8}") int partitions
+    ) {
+        return TopicBuilder.name(KafkaTopics.AUCTION_CLOSED)
+                .partitions(partitions)
+                .replicas(1)
+                .build();
+    }
 }
