@@ -1,5 +1,6 @@
 package com.example.payment.infrastructure.config;
 
+import com.example.payment.common.exception.AuctionBidFeeEventValidationException;
 import com.example.payment.common.exception.WalletNotFoundException;
 import com.example.payment.infrastructure.messaging.kafka.KafkaConsumerGroups;
 import com.example.payment.infrastructure.messaging.kafka.KafkaRetryPolicy;
@@ -22,7 +23,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
-import org.springframework.util.backoff.FixedBackOff;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -117,13 +117,15 @@ public class KafkaConsumerConfig {
     public ConcurrentKafkaListenerContainerFactory<String, String>
         auctionBidFeeChargeRequestedKafkaListenerContainerFactory(
             ConsumerFactory<String, String> auctionBidFeeChargeRequestedConsumerFactory,
+            KafkaTemplate<String, String> kafkaTemplate,
             @Value("${kafka.consumer.auction-bid-fee.concurrency:8}") int concurrency
     ) {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(auctionBidFeeChargeRequestedConsumerFactory);
         factory.setConcurrency(concurrency);
-        factory.setCommonErrorHandler(createAuctionBidFeeChargeRequestedErrorHandler());
+        factory.setCommonErrorHandler(createDlqErrorHandler(
+                kafkaTemplate, KafkaTopics.AUCTION_BID_FEE_CHARGE_REQUESTED_DLQ));
         return factory;
     }
 
@@ -143,12 +145,14 @@ public class KafkaConsumerConfig {
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, String>
         auctionBidFeeRefundRequestedKafkaListenerContainerFactory(
-            ConsumerFactory<String, String> auctionBidFeeRefundRequestedConsumerFactory
+            ConsumerFactory<String, String> auctionBidFeeRefundRequestedConsumerFactory,
+            KafkaTemplate<String, String> kafkaTemplate
     ) {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(auctionBidFeeRefundRequestedConsumerFactory);
-        factory.setCommonErrorHandler(createAuctionBidFeeChargeRequestedErrorHandler());
+        factory.setCommonErrorHandler(createDlqErrorHandler(
+                kafkaTemplate, KafkaTopics.AUCTION_BID_FEE_REFUND_REQUESTED_DLQ));
         return factory;
     }
 
@@ -225,11 +229,37 @@ public class KafkaConsumerConfig {
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
-    private DefaultErrorHandler createAuctionBidFeeChargeRequestedErrorHandler() {
-        return new DefaultErrorHandler((record, exception) ->
-                log.error("경매 입찰 보증금 요청 Kafka 리스너 최종 실패: topic={}, partition={}, offset={}, key={}, payloadSnippet={}",
-                        record.topic(), record.partition(), record.offset(), record.key(), summarizePayload(record), exception),
-                new FixedBackOff(0L, 0L));
+    /**
+     * 경매 입찰 보증금 처리(charge.requested, refund.requested) 컨슈머 공용 DLQ 에러 핸들러.
+     *
+     * 동작 방식
+     * 1. 예외 발생 시 ExponentialBackOff로 재시도
+     *    (HELD UNIQUE 충돌 같은 일시적 race condition을 흡수)
+     * 2. 재시도 횟수 소진 시 dlqTopic으로 메시지를 발행해 무손실 보장
+     * 3. 검증 실패(AuctionBidFeeEventValidationException)는 재시도해도 성공할 수 없으므로
+     *    즉시 DLQ로 보냄
+     *
+     * 기존 FixedBackOff(0L, 0L)는 재시도 없이 로그만 찍고 메시지를 폐기해
+     * silent skip(메시지 손실)을 일으켜 교체.
+     */
+    private DefaultErrorHandler createDlqErrorHandler(
+            KafkaTemplate<String, String> kafkaTemplate,
+            String dlqTopic
+    ) {
+        ExponentialBackOffWithMaxRetries backOff =
+                new ExponentialBackOffWithMaxRetries(KafkaRetryPolicy.MAX_RETRIES);
+        backOff.setInitialInterval(KafkaRetryPolicy.INITIAL_INTERVAL_MS);
+        backOff.setMultiplier(KafkaRetryPolicy.MULTIPLIER);
+        backOff.setMaxInterval(KafkaRetryPolicy.MAX_INTERVAL_MS);
+
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                kafkaTemplate,
+                (record, exception) -> new TopicPartition(dlqTopic, record.partition())
+        );
+
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
+        errorHandler.addNotRetryableExceptions(AuctionBidFeeEventValidationException.class);
+        return errorHandler;
     }
 
     /**

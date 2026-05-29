@@ -29,4 +29,24 @@ public class KafkaTopicConfig {
                 .replicas(1)
                 .build();
     }
+
+    @Bean
+    public NewTopic auctionBidFeeChargeRequestedDlqTopic(
+            @Value("${kafka.topic.auction-bid-fee-charge-requested-dlq.partitions:8}") int partitions
+    ) {
+        return TopicBuilder.name(KafkaTopics.AUCTION_BID_FEE_CHARGE_REQUESTED_DLQ)
+                .partitions(partitions)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    public NewTopic auctionBidFeeRefundRequestedDlqTopic(
+            @Value("${kafka.topic.auction-bid-fee-refund-requested-dlq.partitions:8}") int partitions
+    ) {
+        return TopicBuilder.name(KafkaTopics.AUCTION_BID_FEE_REFUND_REQUESTED_DLQ)
+                .partitions(partitions)
+                .replicas(1)
+                .build();
+    }
 }
