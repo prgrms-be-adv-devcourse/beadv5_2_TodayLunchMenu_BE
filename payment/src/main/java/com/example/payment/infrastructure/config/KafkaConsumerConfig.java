@@ -5,13 +5,10 @@ import com.example.payment.common.exception.WalletNotFoundException;
 import com.example.payment.infrastructure.messaging.kafka.KafkaConsumerGroups;
 import com.example.payment.infrastructure.messaging.kafka.KafkaTopics;
 import com.todaylunch.common.messaging.kafka.DlqErrorHandlerFactory;
+import com.todaylunch.common.messaging.kafka.KafkaConsumerProps;
 import com.example.payment.infrastructure.messaging.kafka.contract.MemberCreatedMessage;
 import com.example.payment.infrastructure.messaging.kafka.contract.OrderPurchaseConfirmedMessage;
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -203,31 +200,16 @@ public class KafkaConsumerConfig {
     }
 
     /**
-     * 공통 ConsumerFactory 생성 메서드
-     * <p>
-     * 제네릭으로 타입만 바꿔 재사용하려는 의도다.
-     * 현재는 targetType을 인자로 받지만 내부에서 실제로 사용하지는 않는다.
+     * 공통 ConsumerFactory 생성 메서드 (common-messaging의 KafkaConsumerProps 위임).
      */
     private <T> ConsumerFactory<String, T> createConsumerFactory(
             String bootstrapServers,
             String groupId,
             Class<T> targetType
     ) {
-        Map<String, Object> props = new HashMap<>();
-        // Kafka 서버 주소
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        // consumer group 이름
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-        // 오프셋이 없을 때 가장 처음 메시지부터 읽음
-        // 운영 환경에서는 신중하게 선택해야 하는 옵션.
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        // key는 문자열로 역직렬화
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        // value도 문자열로 역직렬화
-        // 즉, 현재 설정만 보면 메시지를 바로 객체로 변환하는 구조는 아니다.
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-
-        return new DefaultKafkaConsumerFactory<>(props);
+        return new DefaultKafkaConsumerFactory<>(
+                KafkaConsumerProps.defaults(bootstrapServers, groupId)
+        );
     }
 
     private String summarizePayload(ConsumerRecord<?, ?> record) {
