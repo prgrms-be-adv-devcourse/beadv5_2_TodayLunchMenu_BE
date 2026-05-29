@@ -1,5 +1,6 @@
 package com.todaylunch.auction.infrastructure.config;
 
+import com.todaylunch.auction.infrastructure.messaging.kafka.KafkaConsumerGroups;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -16,12 +17,11 @@ public class KafkaConsumerConfig {
 
     @Bean
     public ConsumerFactory<String, String> consumerFactory(
-            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
-            @Value("${spring.kafka.consumer.group-id}") String groupId
+            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers
     ) {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, KafkaConsumerGroups.AUCTION_SERVICE);
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);

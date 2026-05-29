@@ -27,7 +27,7 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
     consumer:
-      group-id: auction-service
+      # group-id는 KafkaConsumerGroups 상수로 코드에서 관리 (타입 안전성/일관성)
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       auto-offset-reset: earliest
