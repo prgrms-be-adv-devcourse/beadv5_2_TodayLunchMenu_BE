@@ -3,15 +3,14 @@ package com.example.payment.infrastructure.config;
 import com.example.payment.common.exception.AuctionBidFeeEventValidationException;
 import com.example.payment.common.exception.WalletNotFoundException;
 import com.example.payment.infrastructure.messaging.kafka.KafkaConsumerGroups;
-import com.example.payment.infrastructure.messaging.kafka.KafkaRetryPolicy;
 import com.example.payment.infrastructure.messaging.kafka.KafkaTopics;
+import com.todaylunch.common.messaging.kafka.DlqErrorHandlerFactory;
 import com.example.payment.infrastructure.messaging.kafka.contract.MemberCreatedMessage;
 import com.example.payment.infrastructure.messaging.kafka.contract.OrderPurchaseConfirmedMessage;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -20,9 +19,6 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
-import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -124,8 +120,10 @@ public class KafkaConsumerConfig {
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(auctionBidFeeChargeRequestedConsumerFactory);
         factory.setConcurrency(concurrency);
-        factory.setCommonErrorHandler(createDlqErrorHandler(
-                kafkaTemplate, KafkaTopics.AUCTION_BID_FEE_CHARGE_REQUESTED_DLQ));
+        factory.setCommonErrorHandler(DlqErrorHandlerFactory.create(
+                kafkaTemplate,
+                KafkaTopics.AUCTION_BID_FEE_CHARGE_REQUESTED_DLQ,
+                AuctionBidFeeEventValidationException.class));
         return factory;
     }
 
@@ -151,8 +149,10 @@ public class KafkaConsumerConfig {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(auctionBidFeeRefundRequestedConsumerFactory);
-        factory.setCommonErrorHandler(createDlqErrorHandler(
-                kafkaTemplate, KafkaTopics.AUCTION_BID_FEE_REFUND_REQUESTED_DLQ));
+        factory.setCommonErrorHandler(DlqErrorHandlerFactory.create(
+                kafkaTemplate,
+                KafkaTopics.AUCTION_BID_FEE_REFUND_REQUESTED_DLQ,
+                AuctionBidFeeEventValidationException.class));
         return factory;
     }
 
@@ -193,11 +193,12 @@ public class KafkaConsumerConfig {
                 new ConcurrentKafkaListenerContainerFactory<>();
         // 이 Listener가 사용할 ConsumerFactory 설정
         factory.setConsumerFactory(sellerSettlementPayoutRequestedConsumerFactory);
-        // 공통 에러 핸들러 연결
-        // listener 처리 중 예외가 발생하면 이 정책에 따라 재시도 / DLQ 수행
-        factory.setCommonErrorHandler(createPayoutRequestedErrorHandler(
-                kafkaTemplate
-        ));
+        // 공통 에러 핸들러 연결 (재시도 + DLQ 패턴 — common-messaging의 Factory 재사용)
+        factory.setCommonErrorHandler(DlqErrorHandlerFactory.create(
+                kafkaTemplate,
+                KafkaTopics.SETTLEMENT_PAYOUT_REQUESTED_DLQ,
+                IllegalArgumentException.class,
+                WalletNotFoundException.class));
         return factory;
     }
 
@@ -227,73 +228,6 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
 
         return new DefaultKafkaConsumerFactory<>(props);
-    }
-
-    /**
-     * 경매 입찰 보증금 처리(charge.requested, refund.requested) 컨슈머 공용 DLQ 에러 핸들러.
-     *
-     * 동작 방식
-     * 1. 예외 발생 시 ExponentialBackOff로 재시도
-     *    (HELD UNIQUE 충돌 같은 일시적 race condition을 흡수)
-     * 2. 재시도 횟수 소진 시 dlqTopic으로 메시지를 발행해 무손실 보장
-     * 3. 검증 실패(AuctionBidFeeEventValidationException)는 재시도해도 성공할 수 없으므로
-     *    즉시 DLQ로 보냄
-     *
-     * 기존 FixedBackOff(0L, 0L)는 재시도 없이 로그만 찍고 메시지를 폐기해
-     * silent skip(메시지 손실)을 일으켜 교체.
-     */
-    private DefaultErrorHandler createDlqErrorHandler(
-            KafkaTemplate<String, String> kafkaTemplate,
-            String dlqTopic
-    ) {
-        ExponentialBackOffWithMaxRetries backOff =
-                new ExponentialBackOffWithMaxRetries(KafkaRetryPolicy.MAX_RETRIES);
-        backOff.setInitialInterval(KafkaRetryPolicy.INITIAL_INTERVAL_MS);
-        backOff.setMultiplier(KafkaRetryPolicy.MULTIPLIER);
-        backOff.setMaxInterval(KafkaRetryPolicy.MAX_INTERVAL_MS);
-
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
-                kafkaTemplate,
-                (record, exception) -> new TopicPartition(dlqTopic, record.partition())
-        );
-
-        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
-        errorHandler.addNotRetryableExceptions(AuctionBidFeeEventValidationException.class);
-        return errorHandler;
-    }
-
-    /**
-     * 판매자 정산 지급 요청 이벤트 처리 실패 시 사용할 에러 핸들러 생성
-     * <p>
-     * 동작 방식:
-     * 1. 예외 발생
-     * 2. 재시도 가능한 예외면 지수 백오프로 재시도
-     * 3. 재시도 횟수 소진 시 DLQ로 발행
-     * 4. 비재시도 예외는 즉시 DLQ로 보냄
-     */
-    private DefaultErrorHandler createPayoutRequestedErrorHandler(
-            KafkaTemplate<String, String> kafkaTemplate
-    ) {
-        // 재시도 간격을 점점 늘리는 백오프 정책
-        ExponentialBackOffWithMaxRetries backOff =
-                new ExponentialBackOffWithMaxRetries(KafkaRetryPolicy.MAX_RETRIES);
-        backOff.setInitialInterval(KafkaRetryPolicy.INITIAL_INTERVAL_MS);
-        backOff.setMultiplier(KafkaRetryPolicy.MULTIPLIER);
-        backOff.setMaxInterval(KafkaRetryPolicy.MAX_INTERVAL_MS);
-
-        // 재시도 끝까지 실패한 메시지를 DLQ 토픽으로 보내는 recoverer
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
-                kafkaTemplate,
-                (record, exception) -> new TopicPartition(KafkaTopics.SETTLEMENT_PAYOUT_REQUESTED_DLQ, record.partition())
-        );
-
-        // recoverer + backOff를 사용하는 에러 핸들러 생성
-        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
-
-        // 아래 예외는 재시도해도 성공 가능성이 낮다고 판단해서 즉시 DLQ 처리
-        errorHandler.addNotRetryableExceptions(IllegalArgumentException.class, WalletNotFoundException.class);
-
-        return errorHandler;
     }
 
     private String summarizePayload(ConsumerRecord<?, ?> record) {

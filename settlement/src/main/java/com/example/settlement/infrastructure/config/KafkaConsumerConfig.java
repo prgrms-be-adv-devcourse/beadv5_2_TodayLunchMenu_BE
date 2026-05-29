@@ -2,13 +2,12 @@ package com.example.settlement.infrastructure.config;
 
 import com.example.settlement.common.exception.CustomException;
 import com.example.settlement.infrastructure.messaging.kafka.KafkaConsumerGroups;
-import com.example.settlement.infrastructure.messaging.kafka.KafkaRetryPolicy;
 import com.example.settlement.infrastructure.messaging.kafka.KafkaTopics;
 import com.example.settlement.infrastructure.messaging.kafka.exception.SettlementKafkaValidationException;
+import com.todaylunch.common.messaging.kafka.DlqErrorHandlerFactory;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -18,9 +17,6 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
-import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 
 /**
  * settlement 모듈 Kafka consumer(소비기) 설정을 담당한다.
@@ -58,10 +54,12 @@ public class KafkaConsumerConfig {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(settlementCandidateCreatedConsumerFactory);
-        factory.setCommonErrorHandler(createCommonErrorHandler(
+        factory.setCommonErrorHandler(DlqErrorHandlerFactory.create(
                 kafkaTemplate,
-                KafkaTopics.SETTLEMENT_CANDIDATE_CREATED_DLQ
-        ));
+                KafkaTopics.SETTLEMENT_CANDIDATE_CREATED_DLQ,
+                IllegalArgumentException.class,
+                CustomException.class,
+                SettlementKafkaValidationException.class));
         return factory;
     }
 
@@ -93,41 +91,13 @@ public class KafkaConsumerConfig {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(sellerSettlementPayoutResultConsumerFactory);
-        factory.setCommonErrorHandler(createCommonErrorHandler(
+        factory.setCommonErrorHandler(DlqErrorHandlerFactory.create(
                 kafkaTemplate,
-                KafkaTopics.SETTLEMENT_PAYOUT_RESULT_DLQ
-        ));
+                KafkaTopics.SETTLEMENT_PAYOUT_RESULT_DLQ,
+                IllegalArgumentException.class,
+                CustomException.class,
+                SettlementKafkaValidationException.class));
         return factory;
     }
 
-    /**
-     * 공통 Kafka 소비 에러 처리기를 생성한다.
-     * <p>
-     * - RETRYABLE 예외: 지수 백오프 재시도
-     * - 재시도 소진: DLQ 토픽으로 발행
-     * - IllegalArgumentException: 비재시도 예외로 즉시 DLQ 처리
-     */
-    private DefaultErrorHandler createCommonErrorHandler(
-            KafkaTemplate<String, String> kafkaTemplate,
-            String dlqTopic
-    ) {
-        ExponentialBackOffWithMaxRetries backOff =
-                new ExponentialBackOffWithMaxRetries(KafkaRetryPolicy.MAX_RETRIES);
-        backOff.setInitialInterval(KafkaRetryPolicy.INITIAL_INTERVAL_MS);
-        backOff.setMultiplier(KafkaRetryPolicy.MULTIPLIER);
-        backOff.setMaxInterval(KafkaRetryPolicy.MAX_INTERVAL_MS);
-
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
-                kafkaTemplate,
-                (record, exception) -> new TopicPartition(dlqTopic, record.partition())
-        );
-
-        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
-        errorHandler.addNotRetryableExceptions(
-                IllegalArgumentException.class,
-                CustomException.class,
-                SettlementKafkaValidationException.class
-        );
-        return errorHandler;
-    }
 }
