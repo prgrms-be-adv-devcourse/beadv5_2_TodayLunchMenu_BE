@@ -32,6 +32,8 @@ public class OutboxProcessor {
                              .whenComplete((result, ex) -> {
                                  if (ex != null) {
                                      log.error("Outbox Kafka 발행 실패: id={}, topic={}", event.getId(), event.getTopic(), ex);
+                                     event.revertToPending();
+                                     outboxEventRepository.save(event);
                                  } else {
                                      log.debug("Outbox Kafka 발행 성공: id={}, topic={}", event.getId(), event.getTopic());
                                  }
