@@ -1,17 +1,14 @@
 package com.example.payment.infrastructure.config;
 
+import com.example.payment.common.exception.AuctionBidFeeEventValidationException;
 import com.example.payment.common.exception.WalletNotFoundException;
 import com.example.payment.infrastructure.messaging.kafka.KafkaConsumerGroups;
-import com.example.payment.infrastructure.messaging.kafka.KafkaRetryPolicy;
 import com.example.payment.infrastructure.messaging.kafka.KafkaTopics;
+import com.todaylunch.common.messaging.kafka.DlqErrorHandlerFactory;
+import com.todaylunch.common.messaging.kafka.KafkaConsumerProps;
 import com.example.payment.infrastructure.messaging.kafka.contract.MemberCreatedMessage;
 import com.example.payment.infrastructure.messaging.kafka.contract.OrderPurchaseConfirmedMessage;
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,10 +16,6 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
-import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
-import org.springframework.util.backoff.FixedBackOff;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -117,13 +110,17 @@ public class KafkaConsumerConfig {
     public ConcurrentKafkaListenerContainerFactory<String, String>
         auctionBidFeeChargeRequestedKafkaListenerContainerFactory(
             ConsumerFactory<String, String> auctionBidFeeChargeRequestedConsumerFactory,
+            KafkaTemplate<String, String> kafkaTemplate,
             @Value("${kafka.consumer.auction-bid-fee.concurrency:8}") int concurrency
     ) {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(auctionBidFeeChargeRequestedConsumerFactory);
         factory.setConcurrency(concurrency);
-        factory.setCommonErrorHandler(createAuctionBidFeeChargeRequestedErrorHandler());
+        factory.setCommonErrorHandler(DlqErrorHandlerFactory.create(
+                kafkaTemplate,
+                KafkaTopics.AUCTION_BID_FEE_CHARGE_REQUESTED_DLQ,
+                AuctionBidFeeEventValidationException.class));
         return factory;
     }
 
@@ -143,12 +140,16 @@ public class KafkaConsumerConfig {
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, String>
         auctionBidFeeRefundRequestedKafkaListenerContainerFactory(
-            ConsumerFactory<String, String> auctionBidFeeRefundRequestedConsumerFactory
+            ConsumerFactory<String, String> auctionBidFeeRefundRequestedConsumerFactory,
+            KafkaTemplate<String, String> kafkaTemplate
     ) {
         ConcurrentKafkaListenerContainerFactory<String, String> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(auctionBidFeeRefundRequestedConsumerFactory);
-        factory.setCommonErrorHandler(createAuctionBidFeeChargeRequestedErrorHandler());
+        factory.setCommonErrorHandler(DlqErrorHandlerFactory.create(
+                kafkaTemplate,
+                KafkaTopics.AUCTION_BID_FEE_REFUND_REQUESTED_DLQ,
+                AuctionBidFeeEventValidationException.class));
         return factory;
     }
 
@@ -189,81 +190,26 @@ public class KafkaConsumerConfig {
                 new ConcurrentKafkaListenerContainerFactory<>();
         // 이 Listener가 사용할 ConsumerFactory 설정
         factory.setConsumerFactory(sellerSettlementPayoutRequestedConsumerFactory);
-        // 공통 에러 핸들러 연결
-        // listener 처리 중 예외가 발생하면 이 정책에 따라 재시도 / DLQ 수행
-        factory.setCommonErrorHandler(createPayoutRequestedErrorHandler(
-                kafkaTemplate
-        ));
+        // 공통 에러 핸들러 연결 (재시도 + DLQ 패턴 — common-messaging의 Factory 재사용)
+        factory.setCommonErrorHandler(DlqErrorHandlerFactory.create(
+                kafkaTemplate,
+                KafkaTopics.SETTLEMENT_PAYOUT_REQUESTED_DLQ,
+                IllegalArgumentException.class,
+                WalletNotFoundException.class));
         return factory;
     }
 
     /**
-     * 공통 ConsumerFactory 생성 메서드
-     * <p>
-     * 제네릭으로 타입만 바꿔 재사용하려는 의도다.
-     * 현재는 targetType을 인자로 받지만 내부에서 실제로 사용하지는 않는다.
+     * 공통 ConsumerFactory 생성 메서드 (common-messaging의 KafkaConsumerProps 위임).
      */
     private <T> ConsumerFactory<String, T> createConsumerFactory(
             String bootstrapServers,
             String groupId,
             Class<T> targetType
     ) {
-        Map<String, Object> props = new HashMap<>();
-        // Kafka 서버 주소
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        // consumer group 이름
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-        // 오프셋이 없을 때 가장 처음 메시지부터 읽음
-        // 운영 환경에서는 신중하게 선택해야 하는 옵션.
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        // key는 문자열로 역직렬화
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        // value도 문자열로 역직렬화
-        // 즉, 현재 설정만 보면 메시지를 바로 객체로 변환하는 구조는 아니다.
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-
-        return new DefaultKafkaConsumerFactory<>(props);
-    }
-
-    private DefaultErrorHandler createAuctionBidFeeChargeRequestedErrorHandler() {
-        return new DefaultErrorHandler((record, exception) ->
-                log.error("경매 입찰 보증금 요청 Kafka 리스너 최종 실패: topic={}, partition={}, offset={}, key={}, payloadSnippet={}",
-                        record.topic(), record.partition(), record.offset(), record.key(), summarizePayload(record), exception),
-                new FixedBackOff(0L, 0L));
-    }
-
-    /**
-     * 판매자 정산 지급 요청 이벤트 처리 실패 시 사용할 에러 핸들러 생성
-     * <p>
-     * 동작 방식:
-     * 1. 예외 발생
-     * 2. 재시도 가능한 예외면 지수 백오프로 재시도
-     * 3. 재시도 횟수 소진 시 DLQ로 발행
-     * 4. 비재시도 예외는 즉시 DLQ로 보냄
-     */
-    private DefaultErrorHandler createPayoutRequestedErrorHandler(
-            KafkaTemplate<String, String> kafkaTemplate
-    ) {
-        // 재시도 간격을 점점 늘리는 백오프 정책
-        ExponentialBackOffWithMaxRetries backOff =
-                new ExponentialBackOffWithMaxRetries(KafkaRetryPolicy.MAX_RETRIES);
-        backOff.setInitialInterval(KafkaRetryPolicy.INITIAL_INTERVAL_MS);
-        backOff.setMultiplier(KafkaRetryPolicy.MULTIPLIER);
-        backOff.setMaxInterval(KafkaRetryPolicy.MAX_INTERVAL_MS);
-
-        // 재시도 끝까지 실패한 메시지를 DLQ 토픽으로 보내는 recoverer
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
-                kafkaTemplate,
-                (record, exception) -> new TopicPartition(KafkaTopics.SETTLEMENT_PAYOUT_REQUESTED_DLQ, record.partition())
+        return new DefaultKafkaConsumerFactory<>(
+                KafkaConsumerProps.defaults(bootstrapServers, groupId)
         );
-
-        // recoverer + backOff를 사용하는 에러 핸들러 생성
-        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
-
-        // 아래 예외는 재시도해도 성공 가능성이 낮다고 판단해서 즉시 DLQ 처리
-        errorHandler.addNotRetryableExceptions(IllegalArgumentException.class, WalletNotFoundException.class);
-
-        return errorHandler;
     }
 
     private String summarizePayload(ConsumerRecord<?, ?> record) {

@@ -79,7 +79,7 @@ public class BidCreateService implements BidCreateUseCase {
                                                       "BID",
                                                       "BID_FEE_CHARGE_REQUESTED",
                                                       KafkaTopics.BID_FEE_CHARGE_REQUESTED,
-                                                      auctionId.toString(),
+                                                      auction.getAuctionId().toString(),
                                                       serialize(envelope)
         ));
 

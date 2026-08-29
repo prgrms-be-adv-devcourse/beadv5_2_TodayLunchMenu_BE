@@ -26,6 +26,7 @@ repositories {
 dependencies {
     implementation project(':common-security')
     implementation project(':common-monitoring')
+    implementation project(':common-messaging')
     // Web
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-kafka'
